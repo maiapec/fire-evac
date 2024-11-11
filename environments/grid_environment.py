@@ -38,7 +38,8 @@ Displacements are represented by integers:
 - 3: go right
 - 4: go left
 """
-
+# Question: does the action include the destination? 
+# Do we need to store the list of paths to destinations? I don't think so, as it changes at each timestep
 
 class FireWorld:
     """
@@ -49,10 +50,10 @@ class FireWorld:
     """
 
     # TODO: Functions to modify/delete from PyroRL (below)
-    # - __init__ -> need to adapt to our problem
+    # - __init__ -> need to adapt to our problem, started modifying
     # - sample_fire_propogation -> no need to change
     # - update_paths_and_evacuations -> need to change completely
-    # - accumulate_reward -> partially modified
+    # - accumulate_reward -> modified
     # - advance_to_next_timestep -> no need to change
     # - set_action -> need to change completely
     # - get_state_utility -> ok
@@ -67,9 +68,12 @@ class FireWorld:
         self,
         num_rows: int,
         num_cols: int,
-        populated_areas: np.ndarray,
-        paths: np.ndarray,
-        paths_to_pops: dict,
+        #populated_areas: np.ndarray,
+        cities: np.ndarray, # added
+        road_cells: np.ndarray, # added (a list of grid cells that are roads)
+        initial_position: Tuple[int, int], # added
+        #paths: np.ndarray,
+        #paths_to_pops: dict,
         num_fire_cells: int = 2,
         custom_fire_locations: Optional[np.ndarray] = None,
         wind_speed: Optional[float] = None,
@@ -91,70 +95,82 @@ class FireWorld:
         if num_fire_cells < 1:
             raise ValueError("Number of fire cells should be positive!")
 
-        # Check that populated areas are within the grid
-        valid_populated_areas = (
-            (populated_areas[:, 0] >= 0)
-            & (populated_areas[:, 1] >= 0)
-            & (populated_areas[:, 0] < num_rows)
-            & (populated_areas[:, 1] < num_cols)
+        # Check that cities are within the grid
+        valid_cities = (
+            (cities[:, 0] >= 0)
+            & (cities[:, 1] >= 0)
+            & (cities[:, 0] < num_rows)
+            & (cities[:, 1] < num_cols)
         )
-        if np.any(~valid_populated_areas):
-            raise ValueError("Populated areas are not valid with the grid dimensions")
+        if np.any(~valid_cities):
+            raise ValueError("Inputs for cities are not valid with the grid dimensions")
 
         # Check that each path has squares within the grid
-        valid_paths = [
+        valid_road_cells = [
             (
-                (np.array(path)[:, 0] >= 0)
-                & (np.array(path)[:, 1] >= 0)
-                & (np.array(path)[:, 0] < num_rows)
-                & (np.array(path)[:, 1] < num_cols)
+                (np.array(road_cell)[:, 0] >= 0)
+                & (np.array(road_cell)[:, 1] >= 0)
+                & (np.array(road_cell)[:, 0] < num_rows)
+                & (np.array(road_cell)[:, 1] < num_cols)
             )
-            for path in paths
+            for road_cell in road_cells
         ]
-        if np.any(~np.hstack(valid_paths)):
-            raise ValueError("Pathed areas are not valid with the grid dimensions")
+        if np.any(~np.hstack(valid_road_cells)):
+            raise ValueError("Inputs for road_cells are not valid with the grid dimensions")
 
         # Define the state and action space
         self.reward = 0
-        self.state_space = np.zeros([5, num_rows, num_cols])
+        self.state_space = np.zeros([6, num_rows, num_cols])
 
-        # Set up actions -- add extra action for doing nothing
-        num_paths, num_actions = np.arange(len(paths)), 0
-        for key in paths_to_pops:
+        # Set up the city cells
+        city_rows, city_cols = cities[:, 0], cities[:, 1]
+        self.state_space[CITY_INDEX, city_rows, city_cols] = 1
 
-            # First, check that path index actually exists
-            if not np.isin(key, num_paths):
-                raise ValueError("Key is not a valid index of a path!")
+        # Set up the road cells
+        for road_cell in road_cells:
+            road_rows, road_cols = np.array(road_cell)[:, 0], np.array(road_cell)[:, 1]
+            self.state_space[ROAD_INDEX, road_rows, road_cols] = 1
+        
+        # Set up the initial position of the evacuating individual
+        self.state_space[PRESENCE_INDEX, initial_position[0], initial_position[1]] = 1
 
-            # Then, check that each populated area exists
-            areas = np.array(paths_to_pops[key])
-            if np.any(~np.isin(areas, populated_areas)):
-                raise ValueError("Corresponding populated area does not exist!")
+        # # Set up actions -- add extra action for doing nothing
+        # num_paths, num_actions = np.arange(len(paths)), 0
+        # for key in paths_to_pops:
 
-            # Increment total number of actions to be taken
-            for _ in range(len(paths_to_pops[key])):
-                num_actions += 1
-        self.actions = list(np.arange(num_actions + 1))
+        #     # First, check that path index actually exists
+        #     if not np.isin(key, num_paths):
+        #         raise ValueError("Key is not a valid index of a path!")
 
-        # We want to remember which action index corresponds to which population center
-        # and which path (because we just provide an array like [1,2,3,4,5,6,7]) which
-        # would each be mapped to a given population area taking a given path
-        self.action_to_pop_and_path: dict[Any, Optional[Tuple[Any, Any]]] = {
-            self.actions[-1]: None
-        }
+        #     # Then, check that each populated area exists
+        #     areas = np.array(paths_to_pops[key])
+        #     if np.any(~np.isin(areas, populated_areas)):
+        #         raise ValueError("Corresponding populated area does not exist!")
 
-        # Map each action to a populated area and path
-        index = 0
-        for path in paths_to_pops:
-            for pop in paths_to_pops[path]:
-                self.action_to_pop_and_path[index] = (pop, path)
-                index += 1
+        #     # Increment total number of actions to be taken
+        #     for _ in range(len(paths_to_pops[key])):
+        #         num_actions += 1
+        # self.actions = list(np.arange(num_actions + 1))
 
-        # State for the evacuation of populated areas
-        self.evacuating_paths: Dict[int, list] = (
-            {}
-        )  # path_index : list of pop x,y indices that are evacuating [[x,y],[x,y],...]
-        self.evacuating_timestamps = np.full((num_rows, num_cols), np.inf)
+        # # We want to remember which action index corresponds to which population center
+        # # and which path (because we just provide an array like [1,2,3,4,5,6,7]) which
+        # # would each be mapped to a given population area taking a given path
+        # self.action_to_pop_and_path: dict[Any, Optional[Tuple[Any, Any]]] = {
+        #     self.actions[-1]: None
+        # }
+
+        # # Map each action to a populated area and path
+        # index = 0
+        # for path in paths_to_pops:
+        #     for pop in paths_to_pops[path]:
+        #         self.action_to_pop_and_path[index] = (pop, path)
+        #         index += 1
+
+        # # State for the evacuation of populated areas
+        # self.evacuating_paths: Dict[int, list] = (
+        #     {}
+        # )  # path_index : list of pop x,y indices that are evacuating [[x,y],[x,y],...]
+        # self.evacuating_timestamps = np.full((num_rows, num_cols), np.inf)
 
         # If the user specifies custom fire locations, set them
         self.num_fire_cells = num_fire_cells
@@ -193,23 +209,23 @@ class FireWorld:
             fuel_mean, fuel_stdev, num_values
         ).reshape((num_rows, num_cols))
 
-        # Initialize populated areas
-        pop_rows, pop_cols = populated_areas[:, 0], populated_areas[:, 1]
-        self.state_space[POPULATED_INDEX, pop_rows, pop_cols] = 1
+        # # Initialize populated areas
+        # pop_rows, pop_cols = populated_areas[:, 0], populated_areas[:, 1]
+        # self.state_space[POPULATED_INDEX, pop_rows, pop_cols] = 1
 
-        # Initialize self.paths
-        self.paths: List[List[Any]] = []
-        for path in paths:
-            path_array = np.array(path)
-            path_rows, path_cols = path_array[:, 0].astype(int), path_array[
-                :, 1
-            ].astype(int)
-            self.state_space[PATHS_INDEX, path_rows, path_cols] += 1
+        # # Initialize self.paths
+        # self.paths: List[List[Any]] = []
+        # for path in paths:
+        #     path_array = np.array(path)
+        #     path_rows, path_cols = path_array[:, 0].astype(int), path_array[
+        #         :, 1
+        #     ].astype(int)
+        #     self.state_space[PATHS_INDEX, path_rows, path_cols] += 1
 
-            # Each path in self.paths is a list that records what the path is and
-            # whether the path still exists (i.e. has not been destroyed by a fire)
-            self.paths.append([np.zeros((num_rows, num_cols)), True])
-            self.paths[-1][0][path_rows, path_cols] += 1
+        #     # Each path in self.paths is a list that records what the path is and
+        #     # whether the path still exists (i.e. has not been destroyed by a fire)
+        #     self.paths.append([np.zeros((num_rows, num_cols)), True])
+        #     self.paths[-1][0][path_rows, path_cols] += 1
 
         # Set the timestep
         self.time_step = 0
@@ -359,14 +375,15 @@ class FireWorld:
         # Get the current location of the evacuating population
         current_location_cell = np.where(self.state_space[PRESENCE_INDEX] == 1)
         enflamed_areas = np.where(self.state_space[FIRE_INDEX] == 1)
+        cities = np.where(self.state_space[CITY_INDEX] == 1)
 
         # Update reward
         if current_location_cell in enflamed_areas:
             self.reward -= 100
         else:
             self.reward += 1
-
-        # TODO: make sure that the update of evacuation roads is made somewhere else
+        if current_location_cell in cities:
+            self.reward += 10
 
     def advance_to_next_timestep(self):
         """
