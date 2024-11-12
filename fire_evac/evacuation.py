@@ -207,7 +207,7 @@ class WildfireEvacuationEnv(gym.Env):
         """
         # Set up the state space
         state_space = self.fire_env.get_state()
-        finished_evacuating = self.fire_env.get_finished_evacuating()
+        # finished_evacuating = self.fire_env.get_finished_evacuating()
         (_, rows, cols) = state_space.shape
 
         # Get dimensions of the screen
