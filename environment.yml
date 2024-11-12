@@ -1,0 +1,3 @@
+name: fire-evac-env
+dependencies:
+  - numpy       # Add numpy to the environment

@@ -202,7 +202,7 @@ def generate_map_info_new(
 
     # the number of paths for each populated area is chosen from a normal distribution
     num_paths_array = np.random.normal(
-        num_paths_mean, num_paths_stdev, num_populated_areas
+        num_paths_mean, num_paths_stdev, num_cities
     ).astype(int)
     # each populated area must have at least one path
     num_paths_array[num_paths_array < 1] = 1
@@ -317,4 +317,4 @@ def generate_map_info_new(
             paths_to_pops,
             city_locations,
         )
-    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops
+    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops, all_path_coords
