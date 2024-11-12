@@ -8,7 +8,7 @@ import torch
 from typing import Optional, Any, Tuple, Dict, List
 
 # For wind bias
-from environment_constant import set_fire_mask, linear_wind_transform
+from .environment_constant import set_fire_mask, linear_wind_transform
 
 """
 State Space
