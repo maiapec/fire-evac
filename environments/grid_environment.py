@@ -33,12 +33,13 @@ Action Space
 Option1: At each timestep, the action is a tuple [destination, displacement].
 Option2: At each timestep, the action is only a displacement.
 Displacements are represented by integers:
-- 0: do nothing
-- 1: go up
-- 2: go down
-- 3: go left
-- 4: go right
 """
+NOTMOVE_INDEX = 0 # do nothing
+UP_INDEX = 1 # go up
+DOWN_INDEX = 2 # go down
+LEFT_INDEX = 3 # go left
+RIGHT_INDEX = 4 #go right
+
 # Question: does the action include the destination? First do without and see how it behaves.
 # Do we need to store the list of paths to destinations? I don't think so, as it changes at each timestep.
 
@@ -53,10 +54,10 @@ class FireWorld:
     # TODO: Functions to modify/delete from PyroRL (below)
     # - __init__ -> need to adapt to our problem, done modifying
     # - sample_fire_propogation -> no need to change
-    # - update_paths_and_evacuations -> need to change completely. made a new function update_actions.
+    # - update_paths_and_evacuations -> need to change completely. made a new function update_possible_actions.
     # - accumulate_reward -> modified
     # - advance_to_next_timestep -> no need to change
-    # - set_action -> need to change completely
+    # - set_action -> modified - let's see if it works
     # - get_state_utility -> ok
     # - get_actions -> ok
     # - get_timestep -> ok
@@ -369,22 +370,23 @@ class FireWorld:
     #             if len(self.evacuating_paths[i]) == 0:
     #                 del self.evacuating_paths[i]
 
-    def update_actions(self):
+    def update_possible_actions(self):
         # Get the current location of the evacuating individual
         current_location_cell = np.where(self.state_space[PRESENCE_INDEX] == 1)
         current_location_row, current_location_col = current_location_cell[0], current_location_cell[1]
 
         # Check what actions are possible
+        # Possible = not out of bounds and not on fire
         # TODO: Check consistency with definition of the grid
-        possible_actions = [0]
-        if current_location_row > 0:
-            possible_actions.append(1)
-        if current_location_row < self.num_rows - 1:
-            possible_actions.append(2)
-        if current_location_col > 0:
-            possible_actions.append(3)
-        if current_location_col < self.num_cols - 1:
-            possible_actions.append(4)
+        possible_actions = [NOTMOVE_INDEX]
+        if current_location_row > 0 and self.state_space[FIRE_INDEX, current_location_row - 1, current_location_col] == 0:
+            possible_actions.append(UP_INDEX)
+        if current_location_row < self.num_rows - 1 and self.state_space[FIRE_INDEX, current_location_row + 1, current_location_col] == 0:
+            possible_actions.append(DOWN_INDEX)
+        if current_location_col > 0 and self.state_space[FIRE_INDEX, current_location_row, current_location_col - 1] == 0:
+            possible_actions.append(LEFT_INDEX)
+        if current_location_col < self.num_cols - 1 and self.state_space[FIRE_INDEX, current_location_row, current_location_col + 1] == 0:
+            possible_actions.append(RIGHT_INDEX)
         self.actions = possible_actions
 
     def accumulate_reward(self):
@@ -435,40 +437,54 @@ class FireWorld:
         """
         Allow the agent to take an action within the action space.
         """
-        # Check that there is an action to take
-        if (
-            action in self.action_to_pop_and_path
-            and self.action_to_pop_and_path[action] is not None
-        ):
-            action_val = self.action_to_pop_and_path[action]
-            if action_val is not None and len(action_val) > 0:
-                pop_cell, path_index = action_val
-                pop_cell_row, pop_cell_col = pop_cell[0], pop_cell[1]
+        # # Check that there is an action to take
+        # if (
+        #     action in self.action_to_pop_and_path
+        #     and self.action_to_pop_and_path[action] is not None
+        # ):
+        #     action_val = self.action_to_pop_and_path[action]
+        #     if action_val is not None and len(action_val) > 0:
+        #         pop_cell, path_index = action_val
+        #         pop_cell_row, pop_cell_col = pop_cell[0], pop_cell[1]
 
-                # Ensure that the path chosen and populated cell haven't
-                # burned down and it's not already evacuating and it has not
-                # already evacuated
-                if (
-                    self.paths[path_index][1]
-                    and self.state_space[POPULATED_INDEX, pop_cell_row, pop_cell_col]
-                    == 1
-                    and self.evacuating_timestamps[pop_cell_row, pop_cell_col] == np.inf
-                ):
+        #         # Ensure that the path chosen and populated cell haven't
+        #         # burned down and it's not already evacuating and it has not
+        #         # already evacuated
+        #         if (
+        #             self.paths[path_index][1]
+        #             and self.state_space[POPULATED_INDEX, pop_cell_row, pop_cell_col]
+        #             == 1
+        #             and self.evacuating_timestamps[pop_cell_row, pop_cell_col] == np.inf
+        #         ):
 
-                    # Add to evacuating paths and update state + timestamp
-                    if path_index in self.evacuating_paths:
-                        self.evacuating_paths[path_index].append(pop_cell)
-                    else:
-                        self.evacuating_paths[path_index] = [pop_cell]
-                    self.state_space[EVACUATING_INDEX, pop_cell_row, pop_cell_col] = 1
-                    self.evacuating_timestamps[pop_cell_row, pop_cell_col] = 10
+        #             # Add to evacuating paths and update state + timestamp
+        #             if path_index in self.evacuating_paths:
+        #                 self.evacuating_paths[path_index].append(pop_cell)
+        #             else:
+        #                 self.evacuating_paths[path_index] = [pop_cell]
+        #             self.state_space[EVACUATING_INDEX, pop_cell_row, pop_cell_col] = 1
+        #             self.evacuating_timestamps[pop_cell_row, pop_cell_col] = 10
+        
+        # Assumes action is in the possible actions list obtained from update_possible_actions
+        if action == NOTMOVE_INDEX:
+            return
+        elif action == UP_INDEX:            
+            self.state_space[PRESENCE_INDEX] = np.roll(self.state_space[PRESENCE_INDEX], -1, axis=0)
+        elif action == DOWN_INDEX:
+            self.state_space[PRESENCE_INDEX] = np.roll(self.state_space[PRESENCE_INDEX], 1, axis=0)
+        elif action == LEFT_INDEX:
+            self.state_space[PRESENCE_INDEX] = np.roll(self.state_space[PRESENCE_INDEX], -1, axis=1)
+        elif action == RIGHT_INDEX:
+            self.state_space[PRESENCE_INDEX] = np.roll(self.state_space[PRESENCE_INDEX], 1, axis=1)
+        else:
+            raise ValueError("Invalid action")
 
     def get_state_utility(self) -> int:
         """
         Get the total amount of utility given a current state.
         """
         present_reward = self.reward
-        self.reward = 0
+        self.reward = 0 # I think this step is used to reset the reward to 0 after it has been accumulated
         return present_reward
 
     def get_actions(self) -> list:
