@@ -8,7 +8,7 @@ import torch
 from typing import Optional, Any, Tuple, Dict, List
 
 # For wind bias
-from .environment_constant import set_fire_mask, linear_wind_transform
+from environment_constant import set_fire_mask, linear_wind_transform
 
 """
 State Space
@@ -31,14 +31,14 @@ PRESENCE_INDEX = 5 # Whether the individual evacuating is currently in the cell
 """
 Action Space
 Option1: At each timestep, the action is a tuple [destination, displacement].
-Option2: At each timestep, the action is only a displacement.
+Option2: At each timestep, the action is only a displacement. --> WE CHOOSE THIS ONE FOR NOW.
 Displacements are represented by integers:
 """
 NOTMOVE_INDEX = 0 # do nothing
 UP_INDEX = 1 # go up
 DOWN_INDEX = 2 # go down
 LEFT_INDEX = 3 # go left
-RIGHT_INDEX = 4 #go right
+RIGHT_INDEX = 4 # go right
 
 # Question: does the action include the destination? First do without and see how it behaves.
 # Do we need to store the list of paths to destinations? I don't think so, as it changes at each timestep.
@@ -111,16 +111,23 @@ class FireWorld:
             raise ValueError("Inputs for cities are not valid with the grid dimensions")
 
         # Check that each path has squares within the grid
-        valid_road_cells = [
-            (
-                (np.array(road_cell)[:, 0] >= 0)
-                & (np.array(road_cell)[:, 1] >= 0)
-                & (np.array(road_cell)[:, 0] < num_rows)
-                & (np.array(road_cell)[:, 1] < num_cols)
-            )
-            for road_cell in road_cells
-        ]
-        if np.any(~np.hstack(valid_road_cells)):
+        # valid_road_cells = [
+        #     (
+        #         (np.array(road_cell)[:, 0] >= 0)
+        #         & (np.array(road_cell)[:, 1] >= 0)
+        #         & (np.array(road_cell)[:, 0] < num_rows)
+        #         & (np.array(road_cell)[:, 1] < num_cols)
+        #     )
+        #     for road_cell in road_cells
+        # ]
+        valid_road_cells = (
+            (road_cells[:, 0] >= 0)
+            & (road_cells[:, 1] >= 0)
+            & (road_cells[:, 0] < num_rows)
+            & (road_cells[:, 1] < num_cols)
+        )
+        # if np.any(~np.hstack(valid_road_cells)):
+        if np.any(~valid_road_cells):
             raise ValueError("Inputs for road_cells are not valid with the grid dimensions")
 
         # Define the state and action space
@@ -136,11 +143,24 @@ class FireWorld:
         self.state_space[WATER_INDEX, water_rows, water_cols] = 1
 
         # Set up the road cells
-        for road_cell in road_cells:
-            road_rows, road_cols = np.array(road_cell)[:, 0], np.array(road_cell)[:, 1]
-            self.state_space[ROAD_INDEX, road_rows, road_cols] = 1
+        # for road_cell in road_cells:
+        #     road_rows, road_cols = np.array(road_cell)[:, 0], np.array(road_cell)[:, 1]
+        #     self.state_space[ROAD_INDEX, road_rows, road_cols] = 1
+        road_rows, road_cols = road_cells[:, 0], np.array(road_cells)[:, 1]
+        self.state_space[ROAD_INDEX, road_rows, road_cols] = 1
         
-        # Set up the initial position of the evacuating individual
+        # Check that the initial position is within the grid
+        if (
+            initial_position[0] < 0
+            or initial_position[0] >= num_rows
+            or initial_position[1] < 0
+            or initial_position[1] >= num_cols
+        ):
+            raise ValueError("Initial position is not within the grid")
+        # Check if the initial position is a road cell
+        if self.state_space[ROAD_INDEX, initial_position[0], initial_position[1]] == 0:
+            raise ValueError("Initial position is not a road cell")
+        # Set the initial position
         self.state_space[PRESENCE_INDEX, initial_position[0], initial_position[1]] = 1
 
         # Set up the actions
@@ -259,8 +279,8 @@ class FireWorld:
         else:
             self.fire_mask = torch.from_numpy(self.fire_mask)
 
-        # Record which population cells have finished evacuating
-        self.finished_evacuating_cells = []
+        # # Record which population cells have finished evacuating
+        # self.finished_evacuating_cells = []
 
     def sample_fire_propogation(self):
         """
@@ -376,16 +396,16 @@ class FireWorld:
         current_location_row, current_location_col = current_location_cell[0], current_location_cell[1]
 
         # Check what actions are possible
-        # Possible = not out of bounds and not on fire
+        # Possible = not out of bounds and not on fire and keeps you on road
         # TODO: Check consistency with definition of the grid
         possible_actions = [NOTMOVE_INDEX]
-        if current_location_row > 0 and self.state_space[FIRE_INDEX, current_location_row - 1, current_location_col] == 0:
+        if current_location_row > 0 and self.state_space[FIRE_INDEX, current_location_row - 1, current_location_col] == 0 and self.state_space[ROAD_INDEX, current_location_row - 1, current_location_col] == 1:
             possible_actions.append(UP_INDEX)
-        if current_location_row < self.num_rows - 1 and self.state_space[FIRE_INDEX, current_location_row + 1, current_location_col] == 0:
+        if current_location_row < self.num_rows - 1 and self.state_space[FIRE_INDEX, current_location_row + 1, current_location_col] == 0 and self.state_space[ROAD_INDEX, current_location_row + 1, current_location_col] == 1:
             possible_actions.append(DOWN_INDEX)
-        if current_location_col > 0 and self.state_space[FIRE_INDEX, current_location_row, current_location_col - 1] == 0:
+        if current_location_col > 0 and self.state_space[FIRE_INDEX, current_location_row, current_location_col - 1] == 0 and self.state_space[ROAD_INDEX, current_location_row, current_location_col - 1] == 1:
             possible_actions.append(LEFT_INDEX)
-        if current_location_col < self.num_cols - 1 and self.state_space[FIRE_INDEX, current_location_row, current_location_col + 1] == 0:
+        if current_location_col < self.num_cols - 1 and self.state_space[FIRE_INDEX, current_location_row, current_location_col + 1] == 0 and self.state_space[ROAD_INDEX, current_location_row, current_location_col + 1] == 1:
             possible_actions.append(RIGHT_INDEX)
         self.actions = possible_actions
 
@@ -408,16 +428,19 @@ class FireWorld:
         # self.state_space[EVACUATING_INDEX, enflamed_rows, enflamed_cols] = 0
 
         # Get the current location of the evacuating population
-        current_location_cell = np.where(self.state_space[PRESENCE_INDEX] == 1)
-        enflamed_areas = np.where(self.state_space[FIRE_INDEX] == 1)
-        cities = np.where(self.state_space[CITY_INDEX] == 1)
+        current_location_cell = np.column_stack(np.where(self.state_space[PRESENCE_INDEX] == 1))[0]
+        enflamed_areas = np.column_stack(np.where(self.state_space[FIRE_INDEX] == 1))
+        cities = np.column_stack(np.where(self.state_space[CITY_INDEX] == 1))
+        # print("Current location: ", current_location_cell)
+        # print("Enflamed areas: ", enflamed_areas)
+        # print("Cities: ", cities)
 
         # Update reward
-        if current_location_cell in enflamed_areas:
+        if (enflamed_areas == current_location_cell).all(axis=1).any():
             self.reward -= 100
         else:
             self.reward += 1
-        if current_location_cell in cities:
+        if (cities == current_location_cell).all(axis=1).any():
             self.reward += 10
 
     def advance_to_next_timestep(self):
@@ -429,7 +452,7 @@ class FireWorld:
         """
         self.sample_fire_propogation()
         #self.update_paths_and_evactuations()
-        self.update_actions()
+        self.update_possible_actions()
         self.accumulate_reward()
         self.time_step += 1
 
@@ -465,7 +488,10 @@ class FireWorld:
         #             self.state_space[EVACUATING_INDEX, pop_cell_row, pop_cell_col] = 1
         #             self.evacuating_timestamps[pop_cell_row, pop_cell_col] = 10
         
-        # Assumes action is in the possible actions list obtained from update_possible_actions
+        # Check action is in the possible actions list obtained from update_possible_actions
+        if action not in self.actions:
+            raise ValueError("Invalid action")
+        # Move the evacuating individual
         if action == NOTMOVE_INDEX:
             return
         elif action == UP_INDEX:            
