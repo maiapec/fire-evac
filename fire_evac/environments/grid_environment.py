@@ -139,8 +139,9 @@ class FireWorld:
         self.state_space[CITY_INDEX, city_rows, city_cols] = 1
 
         # Set up the water cells
-        water_rows, water_cols = water_cells[:, 0], water_cells[:, 1]
-        self.state_space[WATER_INDEX, water_rows, water_cols] = 1
+        if water_cells.size != 0:
+            water_rows, water_cols = water_cells[:, 0], water_cells[:, 1]
+            self.state_space[WATER_INDEX, water_rows, water_cols] = 1
 
         # Set up the road cells
         # for road_cell in road_cells:
@@ -242,7 +243,8 @@ class FireWorld:
         ).reshape((num_rows, num_cols))
         # TODO: We can modify this modelization to have a more realistic fuel distribution
         # Water cells should have fuel level 0
-        self.state_space[FUEL_INDEX, water_rows, water_cols] = 0
+        if water_cells.size != 0:
+            self.state_space[FUEL_INDEX, water_rows, water_cols] = 0
 
         # # Initialize populated areas
         # pop_rows, pop_cols = populated_areas[:, 0], populated_areas[:, 1]
@@ -279,6 +281,7 @@ class FireWorld:
         else:
             self.fire_mask = torch.from_numpy(self.fire_mask)
 
+        self.last_action = None
         # # Record which population cells have finished evacuating
         # self.finished_evacuating_cells = []
 
@@ -488,6 +491,9 @@ class FireWorld:
         #             self.state_space[EVACUATING_INDEX, pop_cell_row, pop_cell_col] = 1
         #             self.evacuating_timestamps[pop_cell_row, pop_cell_col] = 10
         
+        # Update last action
+        self.last_action = action
+
         # Check action is in the possible actions list obtained from update_possible_actions
         if action not in self.actions:
             raise ValueError("Invalid action")
