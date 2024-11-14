@@ -317,4 +317,4 @@ def generate_map_info_new(
             paths_to_pops,
             city_locations,
         )
-    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops, all_path_coords
+    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops, all_path_coords, city_locations
