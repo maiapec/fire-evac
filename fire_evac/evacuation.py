@@ -12,21 +12,16 @@ import numpy as np
 import os
 import pygame
 import shutil
-import sys
 from typing import Optional, Any, Tuple
 
 # Constants for visualization
 IMG_DIRECTORY = "grid_screenshots/"
 FIRE_COLOR = pygame.Color("#ef476f")
-# POPULATED_COLOR = pygame.Color("#073b4c")
-# EVACUATING_COLOR = pygame.Color("#118ab2")
-# PATH_COLOR = pygame.Color("#ffd166")
 CITY_COLOR = pygame.Color("#073b4c")
 WATER_COLOR = pygame.Color("#118ab2")
 ROAD_COLOR = pygame.Color("#ffd166")
 GRASS_COLOR = pygame.Color("#06d6a0")
-PRESENCE_COLOR = pygame.Color("#f4a261")
-# FINISHED_COLOR = pygame.Color("#BF9ACA")
+PRESENCE_COLOR = pygame.Color("#9b4d96")
 
 FIRE_INDEX = 0 
 FUEL_INDEX = 1 
@@ -41,13 +36,10 @@ class WildfireEvacuationEnv(gym.Env):
         self,
         num_rows: int,
         num_cols: int,
-        #populated_areas: np.ndarray,
-        cities: np.ndarray, # added
-        water_cells: np.ndarray, # added
-        road_cells: np.ndarray, # added (a list of grid cells that are roads)
-        initial_position: Tuple[int, int], # added
-        #paths: np.ndarray,
-        #paths_to_pops: dict,
+        cities: np.ndarray,
+        water_cells: np.ndarray,
+        road_cells: np.ndarray,
+        initial_position: Tuple[int, int],
         custom_fire_locations: Optional[np.ndarray] = None,
         wind_speed: Optional[float] = None,
         wind_angle: Optional[float] = None,
@@ -62,13 +54,10 @@ class WildfireEvacuationEnv(gym.Env):
         # Save parameters and set up environment
         self.num_rows = num_rows
         self.num_cols = num_cols
-        self.cities = cities # added
-        self.water_cells = water_cells # added
-        self.road_cells = road_cells # added
-        self.initial_position = initial_position # added
-        #self.populated_areas = populated_areas
-        #self.paths = paths
-        #self.paths_to_pops = paths_to_pops
+        self.cities = cities 
+        self.water_cells = water_cells
+        self.road_cells = road_cells
+        self.initial_position = initial_position 
         self.custom_fire_locations = custom_fire_locations
         self.wind_speed = wind_speed
         self.wind_angle = wind_angle
@@ -79,13 +68,10 @@ class WildfireEvacuationEnv(gym.Env):
         self.fire_env = FireWorld(
             num_rows,
             num_cols,
-            cities, # added
-            water_cells, # added
-            road_cells, # added
-            initial_position, # added
-            #populated_areas,
-            #paths,
-            #aths_to_pops,
+            cities, 
+            water_cells, 
+            road_cells,
+            initial_position,
             custom_fire_locations=custom_fire_locations,
             wind_speed=wind_speed,
             wind_angle=wind_angle,
@@ -201,7 +187,7 @@ class WildfireEvacuationEnv(gym.Env):
 
         return screen
 
-    def render(self):
+    def render_pyroRL(self):
         """
         Render the environment
         """
@@ -224,7 +210,7 @@ class WildfireEvacuationEnv(gym.Env):
 
         # Set screen details
         screen.fill((255, 255, 255))
-        pygame.display.set_caption("PyroRL")
+        pygame.display.set_caption("fire-evac")
         screen = self.render_hf(screen, font)
 
         # Calculation for square
@@ -254,19 +240,6 @@ class WildfireEvacuationEnv(gym.Env):
             # Note: try to vectorize?
             for x in range(cols):
                 for y in range(rows):
-
-                    # # Set color of the square
-                    # color = GRASS_COLOR
-                    # if state_space[4][y][x] > 0:
-                    #     color = PATH_COLOR
-                    # if state_space[0][y][x] == 1:
-                    #     color = FIRE_COLOR
-                    # if state_space[2][y][x] == 1:
-                    #     color = POPULATED_COLOR
-                    # if state_space[3][y][x] > 0:
-                    #     color = EVACUATING_COLOR
-                    # if [y, x] in finished_evacuating:
-                    #     color = FINISHED_COLOR
 
                     # Set color of the square
                     color = GRASS_COLOR
@@ -299,6 +272,67 @@ class WildfireEvacuationEnv(gym.Env):
                 timestep = self.fire_env.get_timestep()
                 pygame.image.save(screen, IMG_DIRECTORY + str(timestep) + ".png")
                 running = False
+        pygame.quit()
+
+    def render(self):
+        """
+        Render the environment to an off-screen surface and save it as an image without opening a window.
+        """
+        # Set up the state space
+        state_space = self.fire_env.get_state()
+        (_, rows, cols) = state_space.shape
+
+        # Set up an off-screen surface
+        pygame.init()
+        surface_width = 800  # or any custom size
+        surface_height = 800  # or any custom size
+        surface = pygame.Surface((surface_width, surface_height))  # Off-screen surface
+        font = pygame.font.Font(None, 25)
+
+        # Set up the environment (fill background, etc.)
+        surface.fill((255, 255, 255))  # Background color
+        self.render_hf(surface, font)
+
+        total_width = 0.85 * surface_width - 2 * (cols - 1)
+        total_height = 0.85 * surface_height - 2 * (rows - 1)
+        square_dim = min(int(total_width / cols), int(total_height / rows))
+
+        start_x = surface_width - 2 * (cols - 1) - square_dim * cols
+        start_y = (
+            surface_height - 2 * (rows - 1) - square_dim * rows + 0.05 * surface_height
+        )
+        start_x /= 2
+        start_y /= 2
+
+        # Draw the squares on the off-screen surface
+        for x in range(cols):
+            for y in range(rows):
+                # Set color based on state
+                color = GRASS_COLOR
+                if state_space[ROAD_INDEX][y][x] == 1:
+                    color = ROAD_COLOR
+                if state_space[CITY_INDEX][y][x] == 1:
+                    color = CITY_COLOR
+                if state_space[FIRE_INDEX][y][x] == 1:
+                    color = FIRE_COLOR
+                if state_space[WATER_INDEX][y][x] == 1:
+                    color = WATER_COLOR
+                if state_space[PRESENCE_INDEX][y][x] == 1:
+                    color = PRESENCE_COLOR
+
+                # Draw the square
+                square_rect = pygame.Rect(
+                    start_x + x * (square_dim + 2),
+                    start_y + y * (square_dim + 2),
+                    square_dim,
+                    square_dim,
+                )
+                pygame.draw.rect(surface, color, square_rect)
+
+        # Save the image directly to a file (without showing the window)
+        timestep = self.fire_env.get_timestep()
+        pygame.image.save(surface, IMG_DIRECTORY + str(timestep) + ".png")
+
         pygame.quit()
 
     def generate_gif(self):
