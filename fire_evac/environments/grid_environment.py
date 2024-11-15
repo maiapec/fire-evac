@@ -21,13 +21,6 @@ CITY_INDEX = 3 # Whether the cell represents a city or not (cities are possible 
 ROAD_INDEX = 4 # Whether the cell represents a road or not (roads are paths for evacuation)
 PRESENCE_INDEX = 5 # Whether the individual evacuating is currently in the cell
 
-# PyroRL had:
-# FIRE_INDEX = 0
-# FUEL_INDEX = 1
-# POPULATED_INDEX = 2
-# EVACUATING_INDEX = 3
-# PATHS_INDEX = 4
-
 """
 Action Space
 Option1: At each timestep, the action is a tuple [destination, displacement].
@@ -40,43 +33,22 @@ DOWN_INDEX = 2 # go down
 LEFT_INDEX = 3 # go left
 RIGHT_INDEX = 4 # go right
 
-# Question: does the action include the destination? First do without and see how it behaves.
-# Do we need to store the list of paths to destinations? I don't think so, as it changes at each timestep.
-
 class FireWorld:
     """
     We represent the world as a 6 by n by m tensor:
     - n by m is the size of the grid world,
-    - 5 represents each of the following:
+    - 6 represents each of the following:
         - [fire, fuel, water, city, road, presence]
     """
-
-    # TODO: Functions to modify/delete from PyroRL (below)
-    # - __init__ -> need to adapt to our problem, done modifying
-    # - sample_fire_propogation -> no need to change
-    # - update_paths_and_evacuations -> need to change completely. made a new function update_possible_actions.
-    # - accumulate_reward -> modified
-    # - advance_to_next_timestep -> no need to change
-    # - set_action -> modified - let's see if it works
-    # - get_state_utility -> ok
-    # - get_actions -> ok
-    # - get_timestep -> ok
-    # - get_state -> small change
-    # - get_terminated -> ok
-    # - get_finished_evacuating -> is it needed?
-
 
     def __init__(
         self,
         num_rows: int,
         num_cols: int,
-        #populated_areas: np.ndarray,
         cities: np.ndarray, # added
         water_cells: np.ndarray, # added
         road_cells: np.ndarray, # added (a list of grid cells that are roads)
         initial_position: Tuple[int, int], # added
-        #paths: np.ndarray,
-        #paths_to_pops: dict,
         num_fire_cells: int = 2,
         custom_fire_locations: Optional[np.ndarray] = None,
         wind_speed: Optional[float] = None,
@@ -111,15 +83,6 @@ class FireWorld:
             raise ValueError("Inputs for cities are not valid with the grid dimensions")
 
         # Check that each path has squares within the grid
-        # valid_road_cells = [
-        #     (
-        #         (np.array(road_cell)[:, 0] >= 0)
-        #         & (np.array(road_cell)[:, 1] >= 0)
-        #         & (np.array(road_cell)[:, 0] < num_rows)
-        #         & (np.array(road_cell)[:, 1] < num_cols)
-        #     )
-        #     for road_cell in road_cells
-        # ]
         valid_road_cells = (
             (road_cells[:, 0] >= 0)
             & (road_cells[:, 1] >= 0)
@@ -135,18 +98,18 @@ class FireWorld:
         self.state_space = np.zeros([6, num_rows, num_cols])
 
         # Set up the city cells
+        self.cities = cities
         city_rows, city_cols = cities[:, 0], cities[:, 1]
         self.state_space[CITY_INDEX, city_rows, city_cols] = 1
 
         # Set up the water cells
+        self.water_cells = water_cells
         if water_cells.size != 0:
             water_rows, water_cols = water_cells[:, 0], water_cells[:, 1]
             self.state_space[WATER_INDEX, water_rows, water_cols] = 1
 
         # Set up the road cells
-        # for road_cell in road_cells:
-        #     road_rows, road_cols = np.array(road_cell)[:, 0], np.array(road_cell)[:, 1]
-        #     self.state_space[ROAD_INDEX, road_rows, road_cols] = 1
+        self.road_cells = road_cells
         road_rows, road_cols = road_cells[:, 0], np.array(road_cells)[:, 1]
         self.state_space[ROAD_INDEX, road_rows, road_cols] = 1
         
@@ -166,44 +129,6 @@ class FireWorld:
 
         # Set up the actions
         self.actions = list(np.arange(5))
-
-        # # Set up actions -- add extra action for doing nothing
-        # num_paths, num_actions = np.arange(len(paths)), 0
-        # for key in paths_to_pops:
-
-        #     # First, check that path index actually exists
-        #     if not np.isin(key, num_paths):
-        #         raise ValueError("Key is not a valid index of a path!")
-
-        #     # Then, check that each populated area exists
-        #     areas = np.array(paths_to_pops[key])
-        #     if np.any(~np.isin(areas, populated_areas)):
-        #         raise ValueError("Corresponding populated area does not exist!")
-
-        #     # Increment total number of actions to be taken
-        #     for _ in range(len(paths_to_pops[key])):
-        #         num_actions += 1
-        # self.actions = list(np.arange(num_actions + 1))
-
-        # # We want to remember which action index corresponds to which population center
-        # # and which path (because we just provide an array like [1,2,3,4,5,6,7]) which
-        # # would each be mapped to a given population area taking a given path
-        # self.action_to_pop_and_path: dict[Any, Optional[Tuple[Any, Any]]] = {
-        #     self.actions[-1]: None
-        # }
-
-        # # Map each action to a populated area and path
-        # index = 0
-        # for path in paths_to_pops:
-        #     for pop in paths_to_pops[path]:
-        #         self.action_to_pop_and_path[index] = (pop, path)
-        #         index += 1
-
-        # # State for the evacuation of populated areas
-        # self.evacuating_paths: Dict[int, list] = (
-        #     {}
-        # )  # path_index : list of pop x,y indices that are evacuating [[x,y],[x,y],...]
-        # self.evacuating_timestamps = np.full((num_rows, num_cols), np.inf)
 
         # If the user specifies custom fire locations, set them
         self.num_fire_cells = num_fire_cells
@@ -246,24 +171,6 @@ class FireWorld:
         if water_cells.size != 0:
             self.state_space[FUEL_INDEX, water_rows, water_cols] = 0
 
-        # # Initialize populated areas
-        # pop_rows, pop_cols = populated_areas[:, 0], populated_areas[:, 1]
-        # self.state_space[POPULATED_INDEX, pop_rows, pop_cols] = 1
-
-        # # Initialize self.paths
-        # self.paths: List[List[Any]] = []
-        # for path in paths:
-        #     path_array = np.array(path)
-        #     path_rows, path_cols = path_array[:, 0].astype(int), path_array[
-        #         :, 1
-        #     ].astype(int)
-        #     self.state_space[PATHS_INDEX, path_rows, path_cols] += 1
-
-        #     # Each path in self.paths is a list that records what the path is and
-        #     # whether the path still exists (i.e. has not been destroyed by a fire)
-        #     self.paths.append([np.zeros((num_rows, num_cols)), True])
-        #     self.paths[-1][0][path_rows, path_cols] += 1
-
         # Set the timestep
         self.time_step = 0
 
@@ -281,9 +188,6 @@ class FireWorld:
         else:
             self.fire_mask = torch.from_numpy(self.fire_mask)
 
-        self.last_action = None
-        # # Record which population cells have finished evacuating
-        # self.finished_evacuating_cells = []
 
     def sample_fire_propogation(self):
         """
@@ -321,78 +225,6 @@ class FireWorld:
             np.array(new_fire), self.state_space[FIRE_INDEX]
         )
 
-    # def update_paths_and_evactuations(self):
-    #     # TODO: check that action space is limited within the grid when we do the update
-    #     """
-    #     Performs three functions:
-    #     1. Remove paths that been burned down by a fire
-    #     2. Also stops evacuating any areas that were taking a burned down path
-    #     3. Also decrements the evacuation timestamps
-    #     """
-    #     for i in range(len(self.paths)):
-    #         # Decrement path counts and remove path if path is on fire
-    #         if (
-    #             self.paths[i][1]
-    #             and np.sum(
-    #                 np.logical_and(self.state_space[FIRE_INDEX], self.paths[i][0])
-    #             )
-    #             > 0
-    #         ):
-    #             self.state_space[PATHS_INDEX] -= self.paths[i][0]
-    #             self.paths[i][1] = False
-
-    #             # Stop evacuating an area if it was taking the removed path
-    #             if i in self.evacuating_paths:
-    #                 pop_centers = np.array(self.evacuating_paths[i])
-    #                 pop_rows, pop_cols = pop_centers[:, 0], pop_centers[:, 1]
-
-    #                 # Reset timestamp and evacuation index for populated areas
-    #                 self.evacuating_timestamps[pop_rows, pop_cols] = np.inf
-    #                 self.state_space[EVACUATING_INDEX, pop_rows, pop_cols] = 0
-    #                 del self.evacuating_paths[i]
-
-    #         # We need to decrement the evacuating paths timestamp
-    #         elif i in self.evacuating_paths:
-
-    #             # For the below, this code works for if multiple population centers
-    #             # are taking the same path and finish at the same time, but if we have
-    #             # it so that two population centers can't take the same
-    #             # path it could probably be simplified
-    #             pop_centers = np.array(self.evacuating_paths[i])
-    #             pop_rows, pop_cols = pop_centers[:, 0], pop_centers[:, 1]
-    #             self.evacuating_timestamps[pop_rows, pop_cols] -= 1
-    #             done_evacuating = np.where(self.evacuating_timestamps == 0)
-
-    #             self.state_space[
-    #                 EVACUATING_INDEX, done_evacuating[0], done_evacuating[1]
-    #             ] = 0
-    #             self.state_space[
-    #                 POPULATED_INDEX, done_evacuating[0], done_evacuating[1]
-    #             ] = 0
-
-    #             # Note that right now it is going to be vastly often the case that two
-    #             # population cases don't finish evacuating along the same path at the
-    #             # same time right now, so this is an extremely rare edge case, meaning
-    #             # that most often this for loop will run for a single iteration
-    #             done_evacuating = np.array([done_evacuating[0], done_evacuating[1]])
-    #             done_evacuating = np.transpose(done_evacuating)
-    #             for j in range(done_evacuating.shape[0]):
-    #                 self.evacuating_paths[i].remove(list(done_evacuating[j]))
-
-    #                 # This population center is done evacuating, so we can set its
-    #                 # timestamp back to infinity (so we don't try to remove this
-    #                 # from self.evacuating paths twice - was causing a bug)
-    #                 update_row, update_col = (
-    #                     done_evacuating[j, 0],
-    #                     done_evacuating[j, 1],
-    #                 )
-    #                 self.evacuating_timestamps[update_row, update_col] = np.inf
-    #                 self.finished_evacuating_cells.append([update_row, update_col])
-
-    #             # No more population centers are using this path, so we delete it
-    #             if len(self.evacuating_paths[i]) == 0:
-    #                 del self.evacuating_paths[i]
-
     def update_possible_actions(self):
         # Get the current location of the evacuating individual
         current_location_cell = np.where(self.state_space[PRESENCE_INDEX] == 1)
@@ -400,7 +232,6 @@ class FireWorld:
 
         # Check what actions are possible
         # Possible = not out of bounds and not on fire and keeps you on road
-        # TODO: Check consistency with definition of the grid
         possible_actions = [NOTMOVE_INDEX]
         if current_location_row > 0 and self.state_space[FIRE_INDEX, current_location_row - 1, current_location_col] == 0 and self.state_space[ROAD_INDEX, current_location_row - 1, current_location_col] == 1:
             possible_actions.append(UP_INDEX)
@@ -454,7 +285,6 @@ class FireWorld:
         3. Accumulate reward and document enflamed areas
         """
         self.sample_fire_propogation()
-        #self.update_paths_and_evactuations()
         self.update_possible_actions()
         self.accumulate_reward()
         self.time_step += 1
@@ -463,38 +293,7 @@ class FireWorld:
         """
         Allow the agent to take an action within the action space.
         """
-        # # Check that there is an action to take
-        # if (
-        #     action in self.action_to_pop_and_path
-        #     and self.action_to_pop_and_path[action] is not None
-        # ):
-        #     action_val = self.action_to_pop_and_path[action]
-        #     if action_val is not None and len(action_val) > 0:
-        #         pop_cell, path_index = action_val
-        #         pop_cell_row, pop_cell_col = pop_cell[0], pop_cell[1]
 
-        #         # Ensure that the path chosen and populated cell haven't
-        #         # burned down and it's not already evacuating and it has not
-        #         # already evacuated
-        #         if (
-        #             self.paths[path_index][1]
-        #             and self.state_space[POPULATED_INDEX, pop_cell_row, pop_cell_col]
-        #             == 1
-        #             and self.evacuating_timestamps[pop_cell_row, pop_cell_col] == np.inf
-        #         ):
-
-        #             # Add to evacuating paths and update state + timestamp
-        #             if path_index in self.evacuating_paths:
-        #                 self.evacuating_paths[path_index].append(pop_cell)
-        #             else:
-        #                 self.evacuating_paths[path_index] = [pop_cell]
-        #             self.state_space[EVACUATING_INDEX, pop_cell_row, pop_cell_col] = 1
-        #             self.evacuating_timestamps[pop_cell_row, pop_cell_col] = 10
-        
-        # Update last action
-        self.last_action = action
-
-        # Check action is in the possible actions list obtained from update_possible_actions
         if action not in self.actions:
             raise ValueError("Invalid action")
         # Move the evacuating individual
@@ -546,8 +345,29 @@ class FireWorld:
         """
         return self.time_step >= 100
 
-    # def get_finished_evacuating(self) -> list:
-    #     """
-    #     Get the populated areas that are finished evacuating.
-    #     """
-    #     return self.finished_evacuating_cells
+    def copy(self) -> "FireWorld":
+        """
+        Copy the current environment.
+        """
+        initial_position = np.where(self.state_space[PRESENCE_INDEX] == 1)
+        new_env = FireWorld(
+            self.num_rows,
+            self.num_cols,
+            self.cities,
+            self.water_cells,
+            self.road_cells,
+            initial_position,
+            self.num_fire_cells,
+            custom_fire_locations=None,
+            wind_speed=None,
+            wind_angle=None,
+            fuel_mean=8.5,
+            fuel_stdev=3,
+            fire_propagation_rate=0.094,
+        )
+        new_env.state_space = np.copy(self.state_space)
+        new_env.reward = self.reward
+        new_env.time_step = self.time_step
+        new_env.actions = self.actions
+        return new_env
+    

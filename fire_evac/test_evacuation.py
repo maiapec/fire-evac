@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 from evacuation import WildfireEvacuationEnv
 from environments.grid_environment import FireWorld
 from map_helpers.create_map_info import generate_map_info_new
@@ -126,33 +127,32 @@ def test_MCTS_with_map(n_timesteps=10):
                                                                                 num_paths_stdev = 1)
     road_cells = np.array(all_path_coords)
     # Create environment
-    evac_env = FireWorld(num_rows, 
-                        num_cols, 
-                        city_locations, 
-                        water_cells, 
-                        road_cells, 
-                        initial_position, 
-                        num_fire_cells,
-                        custom_fire_locations, 
-                        wind_speed, 
-                        wind_angle, 
-                        fuel_mean, 
-                        fuel_stdev, 
-                        fire_propagation_rate)
-    evac_env.update_possible_actions()
-    print("Actions: ", evac_env.actions)
-    #evac_env.render()
-    for i in range(n_timesteps):
-        mcts = MCTS(evac_env, iterations=100)
-        best_action = mcts.search(evac_env)
-        print("Best action: ", best_action)
-        evac_env.set_action(best_action)
-        evac_env.advance_to_next_timestep()
-        #evac_env.render()
+    evac_env = WildfireEvacuationEnv(num_rows, 
+                                    num_cols, 
+                                    city_locations, 
+                                    water_cells, 
+                                    road_cells, 
+                                    initial_position, 
+                                    custom_fire_locations, 
+                                    wind_speed, 
+                                    wind_angle, 
+                                    fuel_mean, 
+                                    fuel_stdev, 
+                                    fire_propagation_rate)
+    evac_env.fire_env.update_possible_actions()
+    evac_env.render()
+
+    for i in tqdm(range(n_timesteps)):
+        mcts = MCTS(evac_env.fire_env, iterations=20) # Must be inferior to n_timesteps?
+        best_action = mcts.search(evac_env.fire_env.copy())
+        # print("Best action: ", best_action)
+        evac_env.fire_env.set_action(best_action)
+        evac_env.fire_env.advance_to_next_timestep()
+        evac_env.render()
     evac_env.generate_gif()
     evac_env.close()
 
 if __name__ == "__main__":
     #test_evacuation()
     #test_evacuation_with_map()
-    test_MCTS_with_map(n_timesteps=30)
+    test_MCTS_with_map(n_timesteps=40)

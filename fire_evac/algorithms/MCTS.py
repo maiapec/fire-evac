@@ -1,14 +1,6 @@
 import numpy as np
-import math
 import random
-
-"""
-The state class must contains methods: get_actions(), set_action(action), get_terminated()
-To use the MCTS:
-initial_state = YourStateClass()
-mcts = MCTS(initial_state)
-best_action = mcts.search()
-"""
+import math
 
 class TreeNode:
     def __init__(self, state, action=None, parent=None):
@@ -23,19 +15,25 @@ class TreeNode:
         return len(self.children) == len(self.state.actions)
 
     def best_child(self, exploration_weight=1.0):
-        print("Children: ", self.children)
         weights = [
             (child.total_reward / child.visit_count) +
             exploration_weight * math.sqrt(math.log(self.visit_count) / child.visit_count)
             for child in self.children
         ]
-        print("Weights: ", weights)
         return self.children[np.argmax(weights)]
 
     def add_child(self, child_state, action):
         child_node = TreeNode(state=child_state, action=action, parent=self)
         self.children.append(child_node)
         return child_node
+    
+    def describe(self):
+        print("State: ", self.state)
+        print("Action: ", self.action)
+        print("Parent: ", self.parent)
+        print("Children: ", self.children)
+        print("Visit count: ", self.visit_count)
+        print("Total reward: ", self.total_reward)
 
 class MCTS:
     def __init__(self, env, iterations=100, exploration_weight=1.0):
@@ -45,12 +43,11 @@ class MCTS:
 
     def search(self, initial_state):
         root = TreeNode(state=initial_state)
+        #root.describe()
 
         for _ in range(self.iterations):
-            print("Iteration: ", _)
             node = self.select(root)
             if node is not None:
-                print("Not none")
                 reward = self.simulate(node.state)
                 self.backpropagate(node, reward)
 
@@ -66,6 +63,7 @@ class MCTS:
 
     def expand(self, node):
         tried_actions = [child.action for child in node.children]
+        node.state.update_possible_actions()
         for action in node.state.actions:
             if action not in tried_actions:
                 next_state = self.simulate_action(node.state, action)
@@ -76,16 +74,18 @@ class MCTS:
         for _ in range(depth):
             if self.is_terminal(state):
                 break
+            state.update_possible_actions()
             action = random.choice(state.actions)
             state = self.simulate_action(state, action)
             total_reward += state.reward
         return total_reward
 
     def simulate_action(self, state, action):
-        new_env = self.env  # Clone environment for simulation
-        new_env.set_action(action)
-        new_env.advance_to_next_timestep()
-        return new_env
+        new_state = state.copy() # Clone environment for simulation
+        new_state.update_possible_actions()
+        new_state.set_action(action)
+        new_state.advance_to_next_timestep()
+        return new_state
 
     def backpropagate(self, node, reward):
         while node is not None:
