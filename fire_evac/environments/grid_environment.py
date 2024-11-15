@@ -310,6 +310,28 @@ class FireWorld:
         else:
             raise ValueError("Invalid action")
 
+    def distance_to_fire(self, action: int) -> int:
+        """
+        Compute the distance to the nearest fire after taking an action.
+        """
+        # Get the current location of the evacuating individual
+        current_location_cell = np.where(self.state_space[PRESENCE_INDEX] == 1)
+        current_location_row, current_location_col = current_location_cell[0], current_location_cell[1]
+
+        # Get the distance to the fire after taking the action
+        if action == NOTMOVE_INDEX:
+            return np.min(np.sqrt((current_location_row - np.where(self.state_space[FIRE_INDEX] == 1)[0])**2 + (current_location_col - np.where(self.state_space[FIRE_INDEX] == 1)[1])**2))
+        elif action == UP_INDEX:
+            return np.min(np.sqrt((current_location_row - 1 - np.where(self.state_space[FIRE_INDEX] == 1)[0])**2 + (current_location_col - np.where(self.state_space[FIRE_INDEX] == 1)[1])**2))
+        elif action == DOWN_INDEX:
+            return np.min(np.sqrt((current_location_row + 1 - np.where(self.state_space[FIRE_INDEX] == 1)[0])**2 + (current_location_col - np.where(self.state_space[FIRE_INDEX] == 1)[1])**2))
+        elif action == LEFT_INDEX:
+            return np.min(np.sqrt((current_location_row - np.where(self.state_space[FIRE_INDEX] == 1)[0])**2 + (current_location_col - 1 - np.where(self.state_space[FIRE_INDEX] == 1)[1])**2))
+        elif action == RIGHT_INDEX:
+            return np.min(np.sqrt((current_location_row - np.where(self.state_space[FIRE_INDEX] == 1)[0])**2 + (current_location_col + 1 - np.where(self.state_space[FIRE_INDEX] == 1)[1])**2))
+        else:
+            raise ValueError("Invalid action")
+        
     def get_state_utility(self) -> int:
         """
         Get the total amount of utility given a current state.

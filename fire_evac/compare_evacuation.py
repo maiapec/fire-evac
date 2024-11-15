@@ -11,5 +11,6 @@ Ideas for validating and comaaring evacuation models.
 
 3. Metrics to compare models:
         - Average final reward over multiple runs (for a given map?)
+        - Time to choose next action (-> to make it realistic)
         - ?
 """

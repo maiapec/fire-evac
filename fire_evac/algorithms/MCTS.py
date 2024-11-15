@@ -37,7 +37,7 @@ class TreeNode:
 
 class MCTS:
     def __init__(self, env, iterations=100, exploration_weight=1.0):
-        self.env = env
+        self.env = env # useless with the current MCTS implementation
         self.iterations = iterations
         self.exploration_weight = exploration_weight
 

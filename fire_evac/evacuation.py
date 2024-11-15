@@ -341,5 +341,5 @@ class WildfireEvacuationEnv(gym.Env):
         """
         files = [str(i) for i in range(1, self.fire_env.get_timestep() + 1)]
         images = [imageio.imread(IMG_DIRECTORY + f + ".png") for f in files]
-        imageio.mimsave("training.gif", images, loop=0)
+        imageio.mimsave("gifs/training.gif", images, loop=0)
         shutil.rmtree(IMG_DIRECTORY)
