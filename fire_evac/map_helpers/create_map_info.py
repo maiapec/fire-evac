@@ -30,45 +30,57 @@ ORIENTATONS = {
 MAP_DIRECTORY = "pyrorl_map_info"
 
 
-def generate_pop_locations(num_rows: int, num_cols: int, num_populated_areas: int):
+def generate_city_locations(num_rows: int, num_cols: int, num_populated_areas: int):
     """
-    Randomly generate populated areas.
+    Randomly generate 3x3 populated areas, where each edge is at least 1 cell away from the edge of the grid world.
     """
     populated_areas = set()
+    cities = []
+
     for _ in range(num_populated_areas):
-        # We don't generate populated cells on the edge of the
-        # map
-        pop_row = random.randint(1, num_rows - 2)
-        pop_col = random.randint(1, num_cols - 2)
-        # Continue generating populated areas until one that
-        # has not already been created is made
-        while (pop_row, pop_col) in populated_areas:
-            pop_row = random.randint(1, num_rows - 2)
-            pop_col = random.randint(1, num_cols - 2)
-        populated_areas.add((pop_row, pop_col))
-    populated_areas = np.array(list(populated_areas))
-    return populated_areas
+        # We ensure the 3x3 city square does not overlap with edge of the grid
+        center_row = random.randint(2, num_rows - 3)  # Center at least 2 cells away from edges
+        center_col = random.randint(2, num_cols - 3)
+
+        # Create the 3x3 square for the city
+        city_cells = {(r, c) for r in range(center_row - 1, center_row + 2)
+                      for c in range(center_col - 1, center_col + 2)}
+
+        # Ensure no overlap with existing populated areas
+        while any(cell in populated_areas for cell in city_cells):
+            center_row = random.randint(2, num_rows - 3)
+            center_col = random.randint(2, num_cols - 3)
+            city_cells = {(r, c) for r in range(center_row - 1, center_row + 2)
+                          for c in range(center_col - 1, center_col + 2)}
+
+        # Add the city cells to the populated areas
+        populated_areas.update(city_cells)
+
+        # Add set of city cells to cities list, sorted by row and then col
+        cities.append(sorted(city_cells))
+
+    return cities
 
 
 def save_map_info(
+    agent_loc: tuple,
     num_rows: int,
     num_cols: int,
     num_populated_areas: int,
-    populated_areas: np.ndarray,
-    paths: np.ndarray,
+    paths: list,
     paths_to_pops: dict,
-    city_locations: np.ndarray,
+    city_locations: list
 ):
     """
     This function saves five files:
     - map_info.txt: lets the user easily see the number of rows,
     the number of columns, and the number of populated areas
-    - populated_areas_array.pkl: saves the populated areas array
     - city_locs_array.pkl: saves the city locations array
     - paths_array.pkl: saves the paths array
     - paths_to_pops_array.pkl: saves the paths to pops array
     - map_size_and_percent_populated_list.pkl: saves a list that contains
     the number of rows, number of columns, and number of populated areas
+    - agent_loc.pkl: saves the agent's initial location tuple
     """
     # the map information is saved in the user's current working directory
     user_working_directory = os.getcwd()
@@ -99,14 +111,14 @@ def save_map_info(
             pkl.dump(array, f)
 
     save_array_to_pickle(
-        current_map_directory, populated_areas, "populated_areas_array.pkl"
-    )
-    save_array_to_pickle(
         current_map_directory, city_locations, "city_locs_array.pkl"
     )
     save_array_to_pickle(current_map_directory, paths, "paths_array.pkl")
     save_array_to_pickle(
         current_map_directory, paths_to_pops, "paths_to_pops_array.pkl"
+    )
+    save_array_to_pickle(
+        current_map_directory, agent_loc, "agent_loc.pkl"
     )
 
     # save the number of rows, number of columns, and number of populated areas
@@ -135,7 +147,8 @@ def load_map_info(map_directory_path: str):
         with open(array_filename, "rb") as f:
             return pkl.load(f)
 
-    # load the populated areas array, paths array, and paths_to_pops arrays
+    # load the agent location tuple, populated areas array, paths array, and paths_to_pops arrays
+    agent_loc = load_pickle_file("agent_loc.pkl")
     populated_areas = load_pickle_file("populated_areas_array.pkl")
     city_locations = load_pickle_file("city_locs_array.pkl")
     paths = load_pickle_file("paths_array.pkl")
@@ -145,23 +158,22 @@ def load_map_info(map_directory_path: str):
     map_size_and_percent_populated_list = load_pickle_file(
         "map_size_and_percent_populated_list.pkl"
     )
-    num_rows = map_size_and_percent_populated_list[0]
-    num_cols = map_size_and_percent_populated_list[1]
+
+    all_path_coords = [coord for path in paths for coord in path]
     num_populated_areas = map_size_and_percent_populated_list[2]
     return (
-        num_rows,
-        num_cols,
-        populated_areas,
-        paths,
+        np.array(tuple(agent_loc)),
+        np.array(paths, dtype=object),
         paths_to_pops,
         num_populated_areas,
+        all_path_coords,
         city_locations,
     )
 
 def generate_map_info_new(
     num_rows: int,
     num_cols: int,
-    num_cities: np.ndarray,  # added
+    num_cities: int,  # added
     num_water_cells: np.ndarray,  # TODO after baseline
     num_populated_areas: int = 1,
     save_map: bool = True,
@@ -198,7 +210,7 @@ def generate_map_info_new(
         raise ValueError("The bounds for the number of steps cannot be less than 1!")
 
     paths_to_pops = {}
-    city_locations = generate_pop_locations(num_rows, num_cols, num_cities)
+    city_locations = generate_city_locations(num_rows, num_cols, num_cities)
 
     # the number of paths for each populated area is chosen from a normal distribution
     num_paths_array = np.random.normal(
@@ -211,7 +223,9 @@ def generate_map_info_new(
     path_num = 0
 
     for i in range(len(city_locations)):
-        city_row, city_col = city_locations[i]
+        # Chooses the center cell in the 3x3 city square to build a road from
+        city_row, city_col = city_locations[i][4] # Since location tuples in square sorted by row and col, center is always at index 4
+
         # for cases where a path couldn't be made
         num_pop_paths_created = 0
         while num_pop_paths_created < num_paths_array[i]:
@@ -299,7 +313,8 @@ def generate_map_info_new(
 
     # Randomly place agent somewhere along existing path (not in a city!)
     all_path_coords = [coord for path in paths for coord in path]
-    city_locations_as_lists = [list(coord) for coord in city_locations] # Converting tuples to lists to match path coords
+    city_cells = {cell for city in city_locations for cell in city} # Convert list of sets of tuples into single set of tuples
+    city_locations_as_lists = [list(coord) for coord in city_cells] # Converting tuples to lists to match path coords
     non_city_coords = [coord for coord in all_path_coords if coord not in city_locations_as_lists]
 
     if non_city_coords:
@@ -309,10 +324,10 @@ def generate_map_info_new(
 
     if save_map:
         save_map_info(
+            agent,
             num_rows,
             num_cols,
             num_populated_areas,
-            np.array(tuple(agent)),
             paths,
             paths_to_pops,
             city_locations,
