@@ -61,6 +61,12 @@ def generate_city_locations(num_rows: int, num_cols: int, num_populated_areas: i
 
     return cities
 
+def generate_water_cells(num_rows: int, num_cols: int, num_water_cells: int, all_path_coords: list, city_cells: list):
+    """
+    Randomly generates num_water_cells bodies of water in the grid.
+
+    This function
+    """
 
 def save_map_info(
     agent_loc: tuple,
@@ -159,12 +165,11 @@ def load_map_info(map_directory_path: str):
     )
 
     all_path_coords = [coord for path in paths for coord in path]
-    num_populated_areas = map_size_and_percent_populated_list[2]
+
     return (
         np.array(tuple(agent_loc)),
         np.array(paths, dtype=object),
         paths_to_pops,
-        num_populated_areas,
         all_path_coords,
         city_locations,
     )
