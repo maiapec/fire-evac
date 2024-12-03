@@ -149,7 +149,6 @@ def load_map_info(map_directory_path: str):
 
     # load the agent location tuple, populated areas array, paths array, and paths_to_pops arrays
     agent_loc = load_pickle_file("agent_loc.pkl")
-    populated_areas = load_pickle_file("populated_areas_array.pkl")
     city_locations = load_pickle_file("city_locs_array.pkl")
     paths = load_pickle_file("paths_array.pkl")
     paths_to_pops = load_pickle_file("paths_to_pops_array.pkl")
@@ -330,6 +329,6 @@ def generate_map_info_new(
             num_populated_areas,
             paths,
             paths_to_pops,
-            city_locations,
+            city_locations_as_lists,
         )
-    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops, all_path_coords, city_locations
+    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops, all_path_coords, city_locations_as_lists
