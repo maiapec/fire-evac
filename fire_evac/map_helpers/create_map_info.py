@@ -61,12 +61,70 @@ def generate_city_locations(num_rows: int, num_cols: int, num_populated_areas: i
 
     return cities
 
-def generate_water_cells(num_rows: int, num_cols: int, num_water_cells: int, all_path_coords: list, city_cells: list):
+def generate_water_bodies(num_rows: int, num_cols: int, num_water_bodies: int, all_path_coords: list, city_cells: list):
     """
     Randomly generates num_water_cells bodies of water in the grid.
 
-    This function
+    This function chooses a cell randomly out of cells not currently used for cities or paths within the grid dimensions.
+    Then, the function generates a stochastic list of water cells for each body of water by randomly choosing a
+    direction to explore from the current cell. If the neighboring cell in the randomly chosen direction does not
+    currently belong to a path, city, or body of water, the neighboring cell gets added to the list of water
+    cells comprising the current body of water.
+
+    This function continues to generate water cells for each body of water until the exploration reaches a path or a city,
+    or until the number of water cells per body of water is reached (limit = (the total number of cells - path cells -
+    city cells) / num_water_bodies)
     """
+    water_cells = set()
+    bodies_of_water = []
+
+    # Convert coords to tuples
+    all_path_coords = [tuple(coord) for coord in all_path_coords]
+    city_cells = [tuple(coord) for coord in city_cells]
+
+    # Calculate limit to number of water cells for each body of water
+    total_grid_cells = num_rows * num_cols
+    water_cell_limit = (total_grid_cells - len(all_path_coords) - len(city_cells)) / num_water_bodies
+
+    for _ in range(num_water_bodies):
+        # Randomly choose currently unused cell to begin building body of water
+        while True:
+            center_row = random.randint(1, num_rows - 2)  # Center at least 1 cell away from edges
+            center_col = random.randint(1, num_cols - 2)
+
+            if (center_row, center_col) not in all_path_coords and \
+                    (center_row, center_col) not in city_cells and \
+                    (center_row, center_col) not in water_cells:
+                break
+
+            # Start growing the body of water
+        body_of_water = set()
+        body_of_water.add((center_row, center_col))
+        frontier = [(center_row, center_col)]  # Cells to explore
+
+        while frontier and len(body_of_water) < water_cell_limit:
+            current_cell = frontier.pop()
+            row, col = current_cell
+
+            # Randomly shuffle directions to add variability
+            directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # Right, Down, Left, Up
+            random.shuffle(directions)
+
+            for dr, dc in directions:
+                new_row, new_col = row + dr, col + dc
+
+                # Check if the new cell is within bounds and not already used
+                if 1 <= new_row < num_rows - 1 and 1 <= new_col < num_cols - 1:  # Stay away from edges
+                    new_cell = (new_row, new_col)
+                    if new_cell not in all_path_coords and \
+                            new_cell not in city_cells and \
+                            new_cell not in water_cells and \
+                            new_cell not in body_of_water:
+                        body_of_water.add(new_cell)
+                        water_cells.add(new_cell)
+                        frontier.append(new_cell)  # Add new cell to frontier for further exploration
+    water_cells = [list(coord) for coord in water_cells]
+    return water_cells
 
 def save_map_info(
     agent_loc: tuple,
@@ -75,7 +133,8 @@ def save_map_info(
     num_populated_areas: int,
     paths: list,
     paths_to_pops: dict,
-    city_locations: list
+    city_locations: list,
+    water_cells: list,
 ):
     """
     This function saves five files:
@@ -87,6 +146,7 @@ def save_map_info(
     - map_size_and_percent_populated_list.pkl: saves a list that contains
     the number of rows, number of columns, and number of populated areas
     - agent_loc.pkl: saves the agent's initial location tuple
+    - water_cells.pkl: saves the water cells array
     """
     # the map information is saved in the user's current working directory
     user_working_directory = os.getcwd()
@@ -126,6 +186,9 @@ def save_map_info(
     save_array_to_pickle(
         current_map_directory, agent_loc, "agent_loc.pkl"
     )
+    save_array_to_pickle(
+        current_map_directory, water_cells, "water_cells.pkl"
+    )
 
     # save the number of rows, number of columns, and number of populated areas
     map_size_and_percent_populated_list = [num_rows, num_cols, num_populated_areas]
@@ -158,6 +221,7 @@ def load_map_info(map_directory_path: str):
     city_locations = load_pickle_file("city_locs_array.pkl")
     paths = load_pickle_file("paths_array.pkl")
     paths_to_pops = load_pickle_file("paths_to_pops_array.pkl")
+    water_cells = load_pickle_file("water_cells.pkl")
 
     # load the number of rows, number of columns, and number of populated areas
     map_size_and_percent_populated_list = load_pickle_file(
@@ -172,13 +236,14 @@ def load_map_info(map_directory_path: str):
         paths_to_pops,
         all_path_coords,
         city_locations,
+        water_cells
     )
 
 def generate_map_info_new(
     num_rows: int,
     num_cols: int,
     num_cities: int,  # added
-    num_water_cells: np.ndarray,  # TODO after baseline
+    num_water_bodies: int,  # TODO after baseline
     num_populated_areas: int = 1,
     save_map: bool = True,
     steps_lower_bound: int = 2,
@@ -320,6 +385,7 @@ def generate_map_info_new(
     city_cells = {cell for city in city_locations for cell in city} # Convert list of sets of tuples into single set of tuples
     city_locations_as_lists = [list(coord) for coord in city_cells] # Converting tuples to lists to match path coords
     non_city_coords = [coord for coord in all_path_coords if coord not in city_locations_as_lists]
+    water_cells = generate_water_bodies(num_rows, num_cols, num_water_bodies, all_path_coords, city_locations_as_lists)
 
     if non_city_coords:
         agent = random.choice(non_city_coords)
@@ -335,5 +401,6 @@ def generate_map_info_new(
             paths,
             paths_to_pops,
             city_locations_as_lists,
+            water_cells,
         )
-    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops, all_path_coords, city_locations_as_lists
+    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops, all_path_coords, city_locations_as_lists, water_cells

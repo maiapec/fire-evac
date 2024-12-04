@@ -8,11 +8,11 @@ def main():
     num_rows, num_cols = 20, 20
     num_cities = 5 # For one agent
 
-    agent_loc, paths, paths_to_pops, all_paths_coords, city_locations = create_map_info.generate_map_info_new(
+    agent_loc, paths, paths_to_pops, all_paths_coords, city_locations, water_cells = create_map_info.generate_map_info_new(
         num_rows,
         num_cols,
         num_cities,
-        num_water_cells=0,
+        num_water_bodies=3,
         num_populated_areas=1,
         save_map=True,
         steps_lower_bound=2,
