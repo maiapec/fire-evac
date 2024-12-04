@@ -106,6 +106,7 @@ class FireWorld:
         self.state_space[CITY_INDEX, city_rows, city_cols] = 1
 
         # Set up the water cells
+        water_cells = np.array(water_cells)
         self.water_cells = water_cells
         if water_cells.size != 0:
             water_rows, water_cols = water_cells[:, 0], water_cells[:, 1]

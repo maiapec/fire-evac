@@ -12,10 +12,9 @@ def standard_initialization(grid_size=40, load=False, map_directory_path: Option
     # Input parameters
     num_rows = grid_size
     num_cols = grid_size
-    num_cities = 5
-    num_water_cells = 0
-    water_cells = np.array([])
-    num_populated_areas = 1
+    num_cities = 4
+    num_water_bodies = 1
+    #water_cells = np.array([])
     num_fire_cells = 2
     custom_fire_locations = None
     wind_speed = None
@@ -26,22 +25,21 @@ def standard_initialization(grid_size=40, load=False, map_directory_path: Option
 
     if not load:
         # Generate map info
-        initial_position, paths, paths_to_pop, road_cells, city_locations = generate_map_info_new(num_rows = num_rows,
-                                                                                    num_cols = num_cols,
-                                                                                    num_cities = num_cities,
-                                                                                    num_water_cells = num_water_cells, 
-                                                                                    num_populated_areas = num_populated_areas,
-                                                                                    save_map = True,
-                                                                                    steps_lower_bound = 2,
-                                                                                    steps_upper_bound = 4,
-                                                                                    percent_go_straight = 50,
-                                                                                    num_paths_mean = 3,
-                                                                                    num_paths_stdev = 1)
+        initial_position, paths, paths_to_pop, road_cells, city_locations, water_cells = generate_map_info_new(num_rows = num_rows,
+                                                                                        num_cols = num_cols,
+                                                                                        num_cities = num_cities,
+                                                                                        num_water_bodies = num_water_bodies, 
+                                                                                        save_map = True,
+                                                                                        steps_lower_bound = 2,
+                                                                                        steps_upper_bound = 4,
+                                                                                        percent_go_straight = 50,
+                                                                                        num_paths_mean = 3,
+                                                                                        num_paths_stdev = 1)
         print("Map generated")
     else:
         if map_directory_path is None:
             raise ValueError("Map path must be provided if load is True")
-        initial_position, paths, paths_to_pop, road_cells, city_locations = load_map_info(map_directory_path=map_directory_path)
+        initial_position, paths, paths_to_pop, road_cells, city_locations, water_cells = load_map_info(map_directory_path=map_directory_path)
         print("Map loaded")
 
     # Create environment
@@ -153,7 +151,7 @@ def test_Random(grid_size=40, load=False, map_directory_path=None, n_timesteps=1
 if __name__ == "__main__":
     grid_size = 50
     n_timesteps = 50
-    map_directory_path = "pyrorl_map_info/2024-12-03 15:47:44" # an example
+    map_directory_path = "pyrorl_map_info/2024-12-03 18:32:45" # an example
 
     test_MCTS(grid_size=grid_size, load=True, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
     #test_MaxImmediateDistance(grid_size=grid_size, load=True, map_directory_path=map_directory_path, n_timesteps=n_timesteps)

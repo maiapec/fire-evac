@@ -30,14 +30,14 @@ ORIENTATONS = {
 MAP_DIRECTORY = "pyrorl_map_info"
 
 
-def generate_city_locations(num_rows: int, num_cols: int, num_populated_areas: int):
+def generate_city_locations(num_rows: int, num_cols: int, num_cities: int):
     """
     Randomly generate 3x3 populated areas, where each edge is at least 1 cell away from the edge of the grid world.
     """
     populated_areas = set()
     cities = []
 
-    for _ in range(num_populated_areas):
+    for _ in range(num_cities):
         # We ensure the 3x3 city square does not overlap with edge of the grid
         center_row = random.randint(2, num_rows - 3)  # Center at least 2 cells away from edges
         center_col = random.randint(2, num_cols - 3)
@@ -82,6 +82,10 @@ def generate_water_bodies(num_rows: int, num_cols: int, num_water_bodies: int, a
     all_path_coords = [tuple(coord) for coord in all_path_coords]
     city_cells = [tuple(coord) for coord in city_cells]
 
+    # If no water bodies, return empty list
+    if num_water_bodies == 0:
+        return []
+    
     # Calculate limit to number of water cells for each body of water
     total_grid_cells = num_rows * num_cols
     water_cell_limit = (total_grid_cells - len(all_path_coords) - len(city_cells)) / num_water_bodies
@@ -130,7 +134,7 @@ def save_map_info(
     agent_loc: tuple,
     num_rows: int,
     num_cols: int,
-    num_populated_areas: int,
+    num_cities: int,
     paths: list,
     paths_to_pops: dict,
     city_locations: list,
@@ -167,7 +171,7 @@ def save_map_info(
         f.write(row_info)
         col_info = "num_cols: " + str(num_cols) + "\n"
         f.write(col_info)
-        percent_pop_info = "num_populated_areas: " + str(num_populated_areas)
+        percent_pop_info = "num_cities: " + str(num_cities)
         f.write(percent_pop_info)
 
     # saved the populated areas array, paths array, and paths_to_pops arrays
@@ -191,13 +195,12 @@ def save_map_info(
     )
 
     # save the number of rows, number of columns, and number of populated areas
-    map_size_and_percent_populated_list = [num_rows, num_cols, num_populated_areas]
+    map_size_and_percent_populated_list = [num_rows, num_cols, num_cities]
     map_size_and_percent_populated_list_filename = os.path.join(
         current_map_directory, "map_size_and_percent_populated_list.pkl"
     )
     with open(map_size_and_percent_populated_list_filename, "wb") as f:
         pkl.dump(map_size_and_percent_populated_list, f)
-
 
 def load_map_info(map_directory_path: str):
     """
@@ -242,9 +245,8 @@ def load_map_info(map_directory_path: str):
 def generate_map_info_new(
     num_rows: int,
     num_cols: int,
-    num_cities: int,  # added
-    num_water_bodies: int,  # TODO after baseline
-    num_populated_areas: int = 1,
+    num_cities: int,  
+    num_water_bodies: int,
     save_map: bool = True,
     steps_lower_bound: int = 2,
     steps_upper_bound: int = 4,
@@ -256,7 +258,7 @@ def generate_map_info_new(
     This function generates the populated areas and paths for a map, along
     with added features for cities and water cells.
     """
-    if num_populated_areas > (num_rows * num_cols - (2 * num_rows + 2 * num_cols - 4)):
+    if num_cities > (num_rows * num_cols - (2 * num_rows + 2 * num_cols - 4)):
         raise ValueError("Cannot have more than 100 percent of the map be populated!")
     if num_rows <= 0:
         raise ValueError("Number of rows must be a positive value!")
@@ -397,7 +399,7 @@ def generate_map_info_new(
             agent,
             num_rows,
             num_cols,
-            num_populated_areas,
+            num_cities,
             paths,
             paths_to_pops,
             city_locations_as_lists,
