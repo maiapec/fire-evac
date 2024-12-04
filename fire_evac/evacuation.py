@@ -40,6 +40,7 @@ class WildfireEvacuationEnv(gym.Env):
         water_cells: np.ndarray,
         road_cells: np.ndarray,
         initial_position: Tuple[int, int],
+        num_fire_cells: int,
         custom_fire_locations: Optional[np.ndarray] = None,
         wind_speed: Optional[float] = None,
         wind_angle: Optional[float] = None,
@@ -58,6 +59,7 @@ class WildfireEvacuationEnv(gym.Env):
         self.water_cells = water_cells
         self.road_cells = road_cells
         self.initial_position = initial_position 
+        self.num_fire_cells = num_fire_cells
         self.custom_fire_locations = custom_fire_locations
         self.wind_speed = wind_speed
         self.wind_angle = wind_angle
@@ -72,6 +74,7 @@ class WildfireEvacuationEnv(gym.Env):
             water_cells, 
             road_cells,
             initial_position,
+            num_fire_cells,
             custom_fire_locations=custom_fire_locations,
             wind_speed=wind_speed,
             wind_angle=wind_angle,
