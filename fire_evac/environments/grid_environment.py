@@ -57,6 +57,7 @@ class FireWorld:
         fuel_stdev: float = 3,
         fire_propagation_rate: float = 0.094,
     ):
+       
         """
         The constructor defines the state and action space, initializes the fires,
         and sets the paths and populated areas.
@@ -73,6 +74,7 @@ class FireWorld:
         self.num_cols = num_cols
 
         # Check that cities are within the grid
+        cities = np.array(cities)
         valid_cities = (
             (cities[:, 0] >= 0)
             & (cities[:, 1] >= 0)
@@ -83,6 +85,7 @@ class FireWorld:
             raise ValueError("Inputs for cities are not valid with the grid dimensions")
 
         # Check that each path has squares within the grid
+        road_cells = np.array(road_cells)
         valid_road_cells = (
             (road_cells[:, 0] >= 0)
             & (road_cells[:, 1] >= 0)
@@ -121,9 +124,9 @@ class FireWorld:
             or initial_position[1] >= num_cols
         ):
             raise ValueError("Initial position is not within the grid")
-        # Check if the initial position is a road cell
-        if self.state_space[ROAD_INDEX, initial_position[0], initial_position[1]] == 0:
-            raise ValueError("Initial position is not a road cell")
+        # Check if the initial position is a road cell or a city cell
+        if self.state_space[ROAD_INDEX, initial_position[0], initial_position[1]] == 0 and self.state_space[CITY_INDEX, initial_position[0], initial_position[1]] == 0:
+            raise ValueError("Initial position is nor a road cell, nor a city cell")
         # Set the initial position
         self.state_space[PRESENCE_INDEX, initial_position[0], initial_position[1]] = 1
 
@@ -161,20 +164,20 @@ class FireWorld:
                 ] = 1
 
         # Initialize fuel levels
-        # Note: make the fire spread parameters to constants?
         num_values = num_rows * num_cols
         self.state_space[FUEL_INDEX] = np.random.normal(
             fuel_mean, fuel_stdev, num_values
         ).reshape((num_rows, num_cols))
-        # TODO: We can modify this modelization to have a more realistic fuel distribution
         # Water cells should have fuel level 0
         if water_cells.size != 0:
             self.state_space[FUEL_INDEX, water_rows, water_cols] = 0
+        # City cells should have fuel level divided by 10
+        self.state_space[FUEL_INDEX, city_rows, city_cols] = self.state_space[FUEL_INDEX, city_rows, city_cols] / 10
 
         # Set the timestep
         self.time_step = 0
 
-        # set fire mask
+        # Set fire mask
         self.fire_mask = set_fire_mask(fire_propagation_rate)
 
         # Factor in wind speeds
@@ -187,7 +190,6 @@ class FireWorld:
             self.fire_mask = linear_wind_transform(wind_speed, wind_angle)
         else:
             self.fire_mask = torch.from_numpy(self.fire_mask)
-
 
     def sample_fire_propogation(self):
         """
@@ -233,13 +235,13 @@ class FireWorld:
         # Check what actions are possible
         # Possible = not out of bounds and not on fire and keeps you on road
         possible_actions = [NOTMOVE_INDEX]
-        if current_location_row > 0 and self.state_space[FIRE_INDEX, current_location_row - 1, current_location_col] == 0 and self.state_space[ROAD_INDEX, current_location_row - 1, current_location_col] == 1:
+        if current_location_row > 0 and self.state_space[FIRE_INDEX, current_location_row - 1, current_location_col] == 0 and (self.state_space[ROAD_INDEX, current_location_row - 1, current_location_col] == 1 or self.state_space[CITY_INDEX, current_location_row - 1, current_location_col] == 1):
             possible_actions.append(UP_INDEX)
-        if current_location_row < self.num_rows - 1 and self.state_space[FIRE_INDEX, current_location_row + 1, current_location_col] == 0 and self.state_space[ROAD_INDEX, current_location_row + 1, current_location_col] == 1:
+        if current_location_row < self.num_rows - 1 and self.state_space[FIRE_INDEX, current_location_row + 1, current_location_col] == 0 and (self.state_space[ROAD_INDEX, current_location_row + 1, current_location_col] == 1 or self.state_space[CITY_INDEX, current_location_row + 1, current_location_col] == 1):
             possible_actions.append(DOWN_INDEX)
-        if current_location_col > 0 and self.state_space[FIRE_INDEX, current_location_row, current_location_col - 1] == 0 and self.state_space[ROAD_INDEX, current_location_row, current_location_col - 1] == 1:
+        if current_location_col > 0 and self.state_space[FIRE_INDEX, current_location_row, current_location_col - 1] == 0 and (self.state_space[ROAD_INDEX, current_location_row, current_location_col - 1] == 1 or self.state_space[CITY_INDEX, current_location_row, current_location_col - 1] == 1):
             possible_actions.append(LEFT_INDEX)
-        if current_location_col < self.num_cols - 1 and self.state_space[FIRE_INDEX, current_location_row, current_location_col + 1] == 0 and self.state_space[ROAD_INDEX, current_location_row, current_location_col + 1] == 1:
+        if current_location_col < self.num_cols - 1 and self.state_space[FIRE_INDEX, current_location_row, current_location_col + 1] == 0 and (self.state_space[ROAD_INDEX, current_location_row, current_location_col + 1] == 1 or self.state_space[CITY_INDEX, current_location_row, current_location_col + 1] == 1):
             possible_actions.append(RIGHT_INDEX)
         self.actions = possible_actions
 

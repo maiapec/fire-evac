@@ -2,6 +2,9 @@ import numpy as np
 import random
 import math
 
+# Real-time decision making with the Monte Carlo Tree Search algorithm
+# MCTS plans and decides on the best action at each timestep based on simulations of future states
+
 class TreeNode:
     def __init__(self, state, action=None, parent=None):
         self.state = state
@@ -14,6 +17,7 @@ class TreeNode:
     def is_fully_expanded(self):
         return len(self.children) == len(self.state.actions)
 
+    # Use UCB1 formula to select the best child
     def best_child(self, exploration_weight=1.0):
         weights = [
             (child.total_reward / child.visit_count) +
@@ -95,3 +99,4 @@ class MCTS:
 
     def is_terminal(self, state):
         return state.get_terminated()  # or another condition like max depth
+

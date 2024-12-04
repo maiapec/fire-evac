@@ -1,19 +1,22 @@
 import numpy as np
 from tqdm import tqdm
+from typing import Optional
+
 from evacuation import WildfireEvacuationEnv
 from environments.grid_environment import FireWorld
-from map_helpers.create_map_info import generate_map_info_new
+from map_helpers.create_map_info import generate_map_info_new, load_map_info
 from algorithms.MCTS import MCTS, TreeNode
 from algorithms.baseline import RandomAgent, MaxImmediateDistanceAgent
 
-def standard_initialization():
+def standard_initialization(grid_size=40, load=False, map_directory_path: Optional[str] = None):
     # Input parameters
-    num_rows = 40
-    num_cols = 40
+    num_rows = grid_size
+    num_cols = grid_size
     num_cities = 5
     num_water_cells = 0
     water_cells = np.array([])
     num_populated_areas = 1
+    num_fire_cells = 2
     custom_fire_locations = None
     wind_speed = None
     wind_angle = None
@@ -21,18 +24,26 @@ def standard_initialization():
     fuel_stdev = 3
     fire_propagation_rate = 0.094
 
-    initial_position, paths, paths_to_pop, all_path_coords, city_locations = generate_map_info_new(num_rows = num_rows,
-                                                                                num_cols = num_cols,
-                                                                                num_cities = num_cities,
-                                                                                num_water_cells = num_water_cells, 
-                                                                                num_populated_areas = num_populated_areas,
-                                                                                save_map = True,
-                                                                                steps_lower_bound = 2,
-                                                                                steps_upper_bound = 4,
-                                                                                percent_go_straight = 50,
-                                                                                num_paths_mean = 3,
-                                                                                num_paths_stdev = 1)
-    road_cells = np.array(all_path_coords)
+    if not load:
+        # Generate map info
+        initial_position, paths, paths_to_pop, road_cells, city_locations = generate_map_info_new(num_rows = num_rows,
+                                                                                    num_cols = num_cols,
+                                                                                    num_cities = num_cities,
+                                                                                    num_water_cells = num_water_cells, 
+                                                                                    num_populated_areas = num_populated_areas,
+                                                                                    save_map = True,
+                                                                                    steps_lower_bound = 2,
+                                                                                    steps_upper_bound = 4,
+                                                                                    percent_go_straight = 50,
+                                                                                    num_paths_mean = 3,
+                                                                                    num_paths_stdev = 1)
+        print("Map generated")
+    else:
+        if map_directory_path is None:
+            raise ValueError("Map path must be provided if load is True")
+        initial_position, paths, paths_to_pop, road_cells, city_locations = load_map_info(map_directory_path=map_directory_path)
+        print("Map loaded")
+
     # Create environment
     evac_env = WildfireEvacuationEnv(num_rows, 
                                     num_cols, 
@@ -40,12 +51,14 @@ def standard_initialization():
                                     water_cells, 
                                     road_cells, 
                                     initial_position, 
+                                    num_fire_cells,
                                     custom_fire_locations, 
                                     wind_speed, 
                                     wind_angle, 
                                     fuel_mean, 
                                     fuel_stdev, 
                                     fire_propagation_rate)
+    print("Environment created")
     return evac_env
 
 def test_first_evacuation(n_timesteps=10):
@@ -88,38 +101,26 @@ def test_first_evacuation(n_timesteps=10):
         evac_env.render()
     evac_env.close()
 
-def test_simple_evacuation_with_map(n_timesteps=10):
+def test_MCTS(grid_size=40, load=False, map_directory_path=None, n_timesteps=10):
 
-    evac_env = standard_initialization()
-    #evac_env.render()
-    for i in range(n_timesteps):
-        possible_actions = evac_env.fire_env.actions
-        # pick a random action in this list
-        action = np.random.choice(possible_actions)
-        evac_env.step(action)
-        #evac_env.render()
-    evac_env.generate_gif()
-    evac_env.close()
-
-def test_MCTS_with_map(n_timesteps=10):
-
-    evac_env = standard_initialization()
+    evac_env = standard_initialization(grid_size, load, map_directory_path)
     evac_env.fire_env.update_possible_actions()
     evac_env.render()
 
     for i in tqdm(range(n_timesteps)):
-        mcts = MCTS(evac_env.fire_env, iterations=20) # Must be inferior to n_timesteps?
+        mcts = MCTS(evac_env.fire_env, iterations=50, exploration_weight=1.5)
         best_action = mcts.search(evac_env.fire_env.copy())
         # print("Best action: ", best_action)
         evac_env.fire_env.set_action(best_action)
         evac_env.fire_env.advance_to_next_timestep()
         evac_env.render()
+    print("Final reward using MCTS: ", evac_env.fire_env.reward)
     evac_env.generate_gif()
     evac_env.close()
 
-def test_MaxImmediateDistance_with_map(n_timesteps=10):
+def test_MaxImmediateDistance(grid_size=40, load=False, map_directory_path=None, n_timesteps=10):
 
-    evac_env = standard_initialization()
+    evac_env = standard_initialization(grid_size, load, map_directory_path)
     evac_env.fire_env.update_possible_actions()
     evac_env.render()
 
@@ -129,12 +130,13 @@ def test_MaxImmediateDistance_with_map(n_timesteps=10):
         evac_env.fire_env.set_action(best_action)
         evac_env.fire_env.advance_to_next_timestep()
         evac_env.render()
+    print("Final reward using MaxImmediateDistance: ", evac_env.fire_env.reward)
     evac_env.generate_gif()
     evac_env.close()
 
-def test_Random_with_map(n_timesteps=10):
+def test_Random(grid_size=40, load=False, map_directory_path=None, n_timesteps=10):
 
-    evac_env = standard_initialization()
+    evac_env = standard_initialization(grid_size, load, map_directory_path)
     evac_env.fire_env.update_possible_actions()
     evac_env.render()
 
@@ -144,13 +146,15 @@ def test_Random_with_map(n_timesteps=10):
         evac_env.fire_env.set_action(best_action)
         evac_env.fire_env.advance_to_next_timestep()
         evac_env.render()
+    print("Final reward using Random Agent: ", evac_env.fire_env.reward)
     evac_env.generate_gif()
     evac_env.close()
 
-
 if __name__ == "__main__":
-    #test_first_evacuation()
-    #test_simple_evacuation_with_map()
-    #test_MCTS_with_map(n_timesteps=40)
-    #test_Random_with_map(n_timesteps=40)
-    test_MaxImmediateDistance_with_map(n_timesteps=40)
+    grid_size = 50
+    n_timesteps = 50
+    map_directory_path = "pyrorl_map_info/2024-12-03 15:47:44" # an example
+
+    test_MCTS(grid_size=grid_size, load=True, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
+    #test_MaxImmediateDistance(grid_size=grid_size, load=True, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
+    #test_Random(grid_size=grid_size, load=False, map_directory_path=None, n_timesteps=n_timesteps)
