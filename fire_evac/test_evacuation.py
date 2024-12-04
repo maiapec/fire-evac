@@ -3,9 +3,8 @@ from tqdm import tqdm
 from typing import Optional
 
 from evacuation import WildfireEvacuationEnv
-from environments.grid_environment import FireWorld
 from map_helpers.create_map_info import generate_map_info_new, load_map_info
-from algorithms.MCTS import MCTS, TreeNode
+from algorithms.MCTS import MCTS
 from algorithms.baseline import RandomAgent, MaxImmediateDistanceAgent
 
 def standard_initialization(grid_size=40, load=False, map_directory_path: Optional[str] = None):
@@ -14,9 +13,7 @@ def standard_initialization(grid_size=40, load=False, map_directory_path: Option
     num_cols = grid_size
     num_cities = 4
     num_water_bodies = 1
-    #water_cells = np.array([])
-    num_fire_cells = 2
-    custom_fire_locations = None
+    num_fires = 2
     wind_speed = None
     wind_angle = None
     fuel_mean = 8.5
@@ -25,21 +22,22 @@ def standard_initialization(grid_size=40, load=False, map_directory_path: Option
 
     if not load:
         # Generate map info
-        initial_position, paths, paths_to_pop, road_cells, city_locations, water_cells = generate_map_info_new(num_rows = num_rows,
-                                                                                        num_cols = num_cols,
-                                                                                        num_cities = num_cities,
-                                                                                        num_water_bodies = num_water_bodies, 
-                                                                                        save_map = True,
-                                                                                        steps_lower_bound = 2,
-                                                                                        steps_upper_bound = 4,
-                                                                                        percent_go_straight = 50,
-                                                                                        num_paths_mean = 3,
-                                                                                        num_paths_stdev = 1)
+        initial_position, paths, paths_to_pop, road_cells, city_locations, water_cells, fire_cells = generate_map_info_new(num_rows = num_rows,
+                                                                                                    num_cols = num_cols,
+                                                                                                    num_cities = num_cities,
+                                                                                                    num_water_bodies = num_water_bodies, 
+                                                                                                    num_fires = num_fires,
+                                                                                                    save_map = True,
+                                                                                                    steps_lower_bound = 2,
+                                                                                                    steps_upper_bound = 4,
+                                                                                                    percent_go_straight = 50,
+                                                                                                    num_paths_mean = 3,
+                                                                                                    num_paths_stdev = 1)
         print("Map generated")
     else:
         if map_directory_path is None:
             raise ValueError("Map path must be provided if load is True")
-        initial_position, paths, paths_to_pop, road_cells, city_locations, water_cells = load_map_info(map_directory_path=map_directory_path)
+        initial_position, paths, paths_to_pop, road_cells, city_locations, water_cells, fire_cells = load_map_info(map_directory_path=map_directory_path)
         print("Map loaded")
 
     # Create environment
@@ -48,9 +46,8 @@ def standard_initialization(grid_size=40, load=False, map_directory_path: Option
                                     city_locations, 
                                     water_cells, 
                                     road_cells, 
+                                    fire_cells,
                                     initial_position, 
-                                    num_fire_cells,
-                                    custom_fire_locations, 
                                     wind_speed, 
                                     wind_angle, 
                                     fuel_mean, 
@@ -108,7 +105,6 @@ def test_MCTS(grid_size=40, load=False, map_directory_path=None, n_timesteps=10)
     for i in tqdm(range(n_timesteps)):
         mcts = MCTS(evac_env.fire_env, iterations=50, exploration_weight=1.5)
         best_action = mcts.search(evac_env.fire_env.copy())
-        # print("Best action: ", best_action)
         evac_env.fire_env.set_action(best_action)
         evac_env.fire_env.advance_to_next_timestep()
         evac_env.render()
@@ -149,10 +145,11 @@ def test_Random(grid_size=40, load=False, map_directory_path=None, n_timesteps=1
     evac_env.close()
 
 if __name__ == "__main__":
-    grid_size = 50
-    n_timesteps = 50
-    map_directory_path = "pyrorl_map_info/2024-12-03 18:32:45" # an example
+    grid_size = 100
+    n_timesteps = 60
+    map_directory_path = "pyrorl_map_info/2024-12-03 19:05:48" # an example
+    load = True
 
-    test_MCTS(grid_size=grid_size, load=True, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
-    #test_MaxImmediateDistance(grid_size=grid_size, load=True, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
-    #test_Random(grid_size=grid_size, load=False, map_directory_path=None, n_timesteps=n_timesteps)
+    test_MCTS(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
+    #test_MaxImmediateDistance(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
+    #test_Random(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)

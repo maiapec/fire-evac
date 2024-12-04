@@ -32,6 +32,7 @@ PRESENCE_INDEX = 5
 
 
 class WildfireEvacuationEnv(gym.Env):
+    
     def __init__(
         self,
         num_rows: int,
@@ -39,9 +40,8 @@ class WildfireEvacuationEnv(gym.Env):
         cities: np.ndarray,
         water_cells: np.ndarray,
         road_cells: np.ndarray,
+        fire_cells: np.ndarray,
         initial_position: Tuple[int, int],
-        num_fire_cells: int,
-        custom_fire_locations: Optional[np.ndarray] = None,
         wind_speed: Optional[float] = None,
         wind_angle: Optional[float] = None,
         fuel_mean: float = 8.5,
@@ -58,9 +58,8 @@ class WildfireEvacuationEnv(gym.Env):
         self.cities = cities 
         self.water_cells = water_cells
         self.road_cells = road_cells
+        self.fire_cells = fire_cells
         self.initial_position = initial_position 
-        self.num_fire_cells = num_fire_cells
-        self.custom_fire_locations = custom_fire_locations
         self.wind_speed = wind_speed
         self.wind_angle = wind_angle
         self.fuel_mean = fuel_mean
@@ -73,9 +72,8 @@ class WildfireEvacuationEnv(gym.Env):
             cities, 
             water_cells, 
             road_cells,
+            fire_cells,
             initial_position,
-            num_fire_cells,
-            custom_fire_locations=custom_fire_locations,
             wind_speed=wind_speed,
             wind_angle=wind_angle,
             fuel_mean=fuel_mean,
@@ -106,13 +104,11 @@ class WildfireEvacuationEnv(gym.Env):
         self.fire_env = FireWorld(
             self.num_rows,
             self.num_cols,
-            self.cities, # added
-            self.water_cells, # added
-            self.road_cells, # added
-            self.initial_position, # added
-            #self.populated_areas,
-            #self.paths,
-            #self.paths_to_pops,
+            self.cities,
+            self.water_cells,
+            self.road_cells,
+            self.fire_cells,
+            self.initial_position,
             wind_speed=self.wind_speed,
             wind_angle=self.wind_angle,
             fuel_mean=self.fuel_mean,

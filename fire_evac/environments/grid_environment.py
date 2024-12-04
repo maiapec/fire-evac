@@ -23,8 +23,7 @@ PRESENCE_INDEX = 5 # Whether the individual evacuating is currently in the cell
 
 """
 Action Space
-Option1: At each timestep, the action is a tuple [destination, displacement].
-Option2: At each timestep, the action is only a displacement. --> WE CHOOSE THIS ONE FOR NOW.
+At each timestep, the action is only a displacement.
 Displacements are represented by integers:
 """
 NOTMOVE_INDEX = 0 # do nothing
@@ -45,12 +44,11 @@ class FireWorld:
         self,
         num_rows: int,
         num_cols: int,
-        cities: np.ndarray, # added
-        water_cells: np.ndarray, # added
-        road_cells: np.ndarray, # added (a list of grid cells that are roads)
-        initial_position: Tuple[int, int], # added
-        num_fire_cells: int = 2,
-        custom_fire_locations: Optional[np.ndarray] = None,
+        cities: np.ndarray,
+        water_cells: np.ndarray,
+        road_cells: np.ndarray,
+        fire_cells: np.ndarray,
+        initial_position: Tuple[int, int],
         wind_speed: Optional[float] = None,
         wind_angle: Optional[float] = None,
         fuel_mean: float = 8.5,
@@ -68,8 +66,7 @@ class FireWorld:
             raise ValueError("Number of rows should be positive!")
         if num_cols < 1:
             raise ValueError("Number of rows should be positive!")
-        if num_fire_cells < 1:
-            raise ValueError("Number of fire cells should be positive!")
+        
         self.num_rows = num_rows
         self.num_cols = num_cols
 
@@ -135,34 +132,40 @@ class FireWorld:
         self.actions = list(np.arange(5))
 
         # If the user specifies custom fire locations, set them
-        self.num_fire_cells = num_fire_cells
-        if custom_fire_locations is not None:
+        fire_cells = np.array(fire_cells)
+        self.fire_cells = fire_cells
+        if len(fire_cells) < 1:
+            raise ValueError("Number of fire cells should be positive!")
+        fire_rows, fire_cols = fire_cells[:, 0], fire_cells[:, 1]
+        self.state_space[FIRE_INDEX, fire_rows, fire_cols] = 1
 
-            # Check that populated areas are within the grid
-            valid_fire_locations = (
-                (custom_fire_locations[:, 0] >= 0)
-                & (custom_fire_locations[:, 1] >= 0)
-                & (custom_fire_locations[:, 0] < num_rows)
-                & (custom_fire_locations[:, 1] < num_cols)
-            )
-            if np.any(~valid_fire_locations):
-                raise ValueError(
-                    "Populated areas are not valid with the grid dimensions"
-                )
+        # if custom_fire_locations is not None:
 
-            # Only once valid, set them!
-            fire_rows = custom_fire_locations[:, 0]
-            fire_cols = custom_fire_locations[:, 1]
-            self.state_space[FIRE_INDEX, fire_rows, fire_cols] = 1
+        #     # Check that populated areas are within the grid
+        #     valid_fire_locations = (
+        #         (custom_fire_locations[:, 0] >= 0)
+        #         & (custom_fire_locations[:, 1] >= 0)
+        #         & (custom_fire_locations[:, 0] < num_rows)
+        #         & (custom_fire_locations[:, 1] < num_cols)
+        #     )
+        #     if np.any(~valid_fire_locations):
+        #         raise ValueError(
+        #             "Populated areas are not valid with the grid dimensions"
+        #         )
 
-        # Otherwise, randomly generate them
-        else:
-            for _ in range(self.num_fire_cells):
-                self.state_space[
-                    FIRE_INDEX,
-                    random.randint(0, num_rows - 1),
-                    random.randint(0, num_cols - 1),
-                ] = 1
+        #     # Only once valid, set them!
+        #     fire_rows = custom_fire_locations[:, 0]
+        #     fire_cols = custom_fire_locations[:, 1]
+        #     self.state_space[FIRE_INDEX, fire_rows, fire_cols] = 1
+
+        # # Otherwise, randomly generate them
+        # else:
+        #     for _ in range(self.num_fire_cells):
+        #         self.state_space[
+        #             FIRE_INDEX,
+        #             random.randint(0, num_rows - 1),
+        #             random.randint(0, num_cols - 1),
+        #         ] = 1
 
         # Initialize fuel levels
         num_values = num_rows * num_cols
@@ -197,7 +200,7 @@ class FireWorld:
         Sample the next state of the wildfire model.
         """
         # Drops fuel level of enflamed cells
-        self.state_space[FUEL_INDEX, self.state_space[FIRE_INDEX] == 1] -= 1
+        self.state_space[FUEL_INDEX, self.state_space[FIRE_INDEX] == 1] -= 0.5
         self.state_space[FUEL_INDEX, self.state_space[FUEL_INDEX] < 0] = 0
 
         # Extinguishes cells that have run out of fuel
@@ -381,9 +384,8 @@ class FireWorld:
             self.cities,
             self.water_cells,
             self.road_cells,
+            self.fire_cells,
             initial_position,
-            self.num_fire_cells,
-            custom_fire_locations=None,
             wind_speed=None,
             wind_angle=None,
             fuel_mean=8.5,

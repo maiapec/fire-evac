@@ -130,6 +130,41 @@ def generate_water_bodies(num_rows: int, num_cols: int, num_water_bodies: int, a
     water_cells = [list(coord) for coord in water_cells]
     return water_cells
 
+def generate_fire_cells(num_rows: int, num_cols: int, num_fires: int, all_path_coords: list, city_cells: list, water_cells: list):
+    """
+    Randomly generates num_fires fires in the grid.
+
+    This function chooses a cell randomly out of cells not currently used for cities, paths, or water bodies within the grid dimensions.
+    """
+    fire_cells = []
+
+    # Convert coords to tuples
+    all_path_coords = [tuple(coord) for coord in all_path_coords]
+    city_cells = [tuple(coord) for coord in city_cells]
+    water_cells = [tuple(coord) for coord in water_cells]
+
+    # If no fires, return empty list
+    if num_fires == 0:
+        return []
+    
+    for _ in range(num_fires):
+        # Randomly choose currently unused
+        while True:
+            center_row = random.randint(1, num_rows - 2)
+            center_col = random.randint(1, num_cols - 2)
+
+            if (center_row, center_col) not in all_path_coords and \
+                    (center_row, center_col) not in city_cells and \
+                    (center_row, center_col) not in water_cells and \
+                    (center_row, center_col) not in fire_cells:
+                break
+
+        fire = (center_row, center_col)
+        fire_cells.append(fire)
+
+    fire_cells = [list(coord) for coord in fire_cells]
+    return fire_cells
+
 def save_map_info(
     agent_loc: tuple,
     num_rows: int,
@@ -139,6 +174,7 @@ def save_map_info(
     paths_to_pops: dict,
     city_locations: list,
     water_cells: list,
+    fire_cells: list,
 ):
     """
     This function saves five files:
@@ -151,6 +187,7 @@ def save_map_info(
     the number of rows, number of columns, and number of populated areas
     - agent_loc.pkl: saves the agent's initial location tuple
     - water_cells.pkl: saves the water cells array
+    - fire_cells.pkl: saves the fire cells array
     """
     # the map information is saved in the user's current working directory
     user_working_directory = os.getcwd()
@@ -193,6 +230,9 @@ def save_map_info(
     save_array_to_pickle(
         current_map_directory, water_cells, "water_cells.pkl"
     )
+    save_array_to_pickle(
+        current_map_directory, fire_cells, "fire_cells.pkl"
+    )
 
     # save the number of rows, number of columns, and number of populated areas
     map_size_and_percent_populated_list = [num_rows, num_cols, num_cities]
@@ -212,6 +252,8 @@ def load_map_info(map_directory_path: str):
     - paths to pops array
     - number of populated areas
     - city locations
+    - water cells
+    - fire cells
     """
 
     def load_pickle_file(name):
@@ -225,6 +267,7 @@ def load_map_info(map_directory_path: str):
     paths = load_pickle_file("paths_array.pkl")
     paths_to_pops = load_pickle_file("paths_to_pops_array.pkl")
     water_cells = load_pickle_file("water_cells.pkl")
+    fire_cells = load_pickle_file("fire_cells.pkl")
 
     # load the number of rows, number of columns, and number of populated areas
     map_size_and_percent_populated_list = load_pickle_file(
@@ -239,7 +282,8 @@ def load_map_info(map_directory_path: str):
         paths_to_pops,
         all_path_coords,
         city_locations,
-        water_cells
+        water_cells,
+        fire_cells,
     )
 
 def generate_map_info_new(
@@ -247,6 +291,7 @@ def generate_map_info_new(
     num_cols: int,
     num_cities: int,  
     num_water_bodies: int,
+    num_fires: int,
     save_map: bool = True,
     steps_lower_bound: int = 2,
     steps_upper_bound: int = 4,
@@ -266,6 +311,8 @@ def generate_map_info_new(
         raise ValueError("Number of columns must be a positive value!")
     if num_cities <= 0:
         raise ValueError("Number of cities must be a positive value!")
+    if num_fires < 1:
+        raise ValueError("Number of fires must be at least 1!")
     if percent_go_straight > 99:
         raise ValueError(
             "Cannot have the percent chance of going straight be greater than 99!"
@@ -386,11 +433,12 @@ def generate_map_info_new(
     all_path_coords = [coord for path in paths for coord in path]
     city_cells = {cell for city in city_locations for cell in city} # Convert list of sets of tuples into single set of tuples
     city_locations_as_lists = [list(coord) for coord in city_cells] # Converting tuples to lists to match path coords
-    non_city_coords = [coord for coord in all_path_coords if coord not in city_locations_as_lists]
     water_cells = generate_water_bodies(num_rows, num_cols, num_water_bodies, all_path_coords, city_locations_as_lists)
+    fire_cells = generate_fire_cells(num_rows, num_cols, num_fires, all_path_coords, city_locations_as_lists, water_cells)
+    available_coords_for_agent = [coord for coord in all_path_coords if (coord not in city_locations_as_lists and coord not in water_cells and coord not in fire_cells)]
 
-    if non_city_coords:
-        agent = random.choice(non_city_coords)
+    if available_coords_for_agent:
+        agent = random.choice(available_coords_for_agent)
     else:
         raise ValueError("No valid path location found for placing the agent.")
 
@@ -404,5 +452,6 @@ def generate_map_info_new(
             paths_to_pops,
             city_locations_as_lists,
             water_cells,
+            fire_cells,
         )
-    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops, all_path_coords, city_locations_as_lists, water_cells
+    return np.array(tuple(agent)), np.array(paths, dtype=object), paths_to_pops, all_path_coords, city_locations_as_lists, water_cells, fire_cells

@@ -1,0 +1,3 @@
+num_rows: 100
+num_cols: 100
+num_cities: 4
