@@ -144,12 +144,59 @@ def test_Random(grid_size=40, load=False, map_directory_path=None, n_timesteps=1
     evac_env.generate_gif()
     evac_env.close()
 
+def test_qlearning(grid_size=40, load=False, map_directory_path=None, n_timesteps=10, alpha=0.1, gamma=0.9, epsilon=0.1):
+    evac_env = standard_initialization(grid_size, load, map_directory_path)
+    evac_env.fire_env.update_possible_actions()
+    evac_env.render()
+
+    # Initialize Q-learning input params
+    num_states = evac_env.fire_env.state_space.shape[1] * evac_env.fire_env.state_space.shape[2]  # Total number of states in the grid world
+    num_actions = len(evac_env.fire_env.actions)
+
+    Q = np.zeros((num_states, num_actions))
+
+    # Map (row, col) to a state index for Q-learning
+    def get_state_index(state_space):
+        presence = np.where(state_space[5] == 1)
+        return presence[0][0] * evac_env.fire_env.num_cols + presence[1][0]
+
+    # Loop through timesteps
+    for t in tqdm(range(n_timesteps)):
+        # Get current state index
+        current_state = get_state_index(evac_env.fire_env.get_state())
+
+        # Epsilon-greedy action selection
+        if np.random.rand() < epsilon:
+            action = np.random.choice(evac_env.fire_env.get_actions())  # Explore
+        else:
+            action = np.argmax(Q[current_state])  # Exploit
+
+        # Perform action and observe results
+        evac_env.fire_env.set_action(action)
+        evac_env.fire_env.advance_to_next_timestep()
+
+        # Get the next state index and reward
+        next_state = get_state_index(evac_env.fire_env.get_state())
+        reward = evac_env.fire_env.get_state_utility()
+
+        # Q-Learning update
+        Q[current_state, action] += alpha * (
+                reward + gamma * np.max(Q[next_state]) - Q[current_state, action]
+        )
+
+        # Render the environment
+        evac_env.render()
+    print("Final reward using Q-Learning: ", evac_env.fire_env.reward)
+    evac_env.generate_gif()
+    evac_env.close()
+
 if __name__ == "__main__":
     grid_size = 100
-    n_timesteps = 60
+    n_timesteps = 100
     map_directory_path = "pyrorl_map_info/2024-12-03 19:05:48" # an example
     load = True
 
-    test_MCTS(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
-    #test_MaxImmediateDistance(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
-    #test_Random(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
+    test_qlearning(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
+    # test_MCTS(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
+    # test_MaxImmediateDistance(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
+    # test_Random(grid_size=grid_size, load=load, map_directory_path=map_directory_path, n_timesteps=n_timesteps)
