@@ -2,6 +2,9 @@ import numpy as np
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import Any, Callable
+from tqdm import tqdm
+
+from .util import standard_initialization
 
 class RLMDP(ABC):
     def __init__(self, A: list[int], gamma: float):
@@ -62,3 +65,57 @@ class QLearning(ModelFreeMDP):
         self.state_values[s] = max(self.state_values[s], np.max(self.Q[s]))
 
         return r + novelty_bonus + progress_bonus
+    
+def solve_qlearning(n_timesteps=10, grid_size=40, load=False, map_directory_path=None, alpha=0.1, gamma=0.9, epsilon=0.1, gif_name="QLearning"):
+    evac_env = standard_initialization(grid_size, load, map_directory_path)
+    evac_env.fire_env.update_possible_actions()
+    evac_env.render()
+
+    # Initialize Q-learning input params
+    num_states = evac_env.fire_env.state_space.shape[1] * evac_env.fire_env.state_space.shape[2]  # Total number of states in the grid world
+    num_actions = len(evac_env.fire_env.actions)
+
+    Q = np.zeros((num_states, num_actions))
+
+    # Map (row, col) to a state index for Q-learning
+    def get_state_index(state_space):
+        presence = np.where(state_space[5] == 1)
+        return presence[0][0] * evac_env.fire_env.num_cols + presence[1][0]
+
+    # Loop through timesteps
+    for t in tqdm(range(n_timesteps)):
+
+        # Update possible actions
+        evac_env.fire_env.update_possible_actions()
+
+        # Get current state index
+        current_state = get_state_index(evac_env.fire_env.get_state())
+
+        # Epsilon-greedy action selection
+        if np.random.rand() < epsilon:
+            action = np.random.choice(evac_env.fire_env.get_actions())  # Explore
+        else:
+            action = np.argmax(Q[current_state])  # Exploit
+
+        # Perform action and observe results
+        evac_env.fire_env.set_action(action)
+        evac_env.fire_env.advance_to_next_timestep()
+
+        # Get the next state index and reward
+        next_state = get_state_index(evac_env.fire_env.get_state())
+        #reward = evac_env.fire_env.get_state_utility()
+        reward = evac_env.fire_env.reward # The function get_state_utility() resets the reward to 0. Instead, we use the reward attribute of the environment.
+
+        # Q-Learning update
+        Q[current_state, action] += alpha * (
+                reward + gamma * np.max(Q[next_state]) - Q[current_state, action]
+        )
+
+        # Render the environment
+        evac_env.render()
+
+    reward = evac_env.fire_env.reward
+    print("Final reward using Q-Learning: ", reward)
+    evac_env.generate_gif(gif_name=gif_name)
+    evac_env.close()
+    return reward
