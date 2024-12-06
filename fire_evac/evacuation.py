@@ -35,6 +35,7 @@ class WildfireEvacuationEnv(gym.Env):
     
     def __init__(
         self,
+        n_timesteps: int,
         num_rows: int,
         num_cols: int,
         cities: np.ndarray,
@@ -53,6 +54,7 @@ class WildfireEvacuationEnv(gym.Env):
         Set up the basic environment and its parameters.
         """
         # Save parameters and set up environment
+        self.n_timesteps = n_timesteps
         self.num_rows = num_rows
         self.num_cols = num_cols
         self.cities = cities 
@@ -67,6 +69,7 @@ class WildfireEvacuationEnv(gym.Env):
         self.fire_propagation_rate = fire_propagation_rate
         self.skip = skip
         self.fire_env = FireWorld(
+            n_timesteps,
             num_rows,
             num_cols,
             cities, 
@@ -102,6 +105,7 @@ class WildfireEvacuationEnv(gym.Env):
         Reset the environment to its initial state.
         """
         self.fire_env = FireWorld(
+            self.n_iterations,
             self.num_rows,
             self.num_cols,
             self.cities,

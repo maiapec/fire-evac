@@ -8,6 +8,7 @@ PRESENCE_INDEX = 5
 def test_fireworld():   
 
     # Input parameters
+    n_iterations = 10
     num_rows = 10
     num_cols = 10
     cities = np.array([[0,0], [0,9], [9,0], [9,9]])
@@ -24,7 +25,8 @@ def test_fireworld():
     fire_propagation_rate = 0.094
     
     # Create a FireWorld environment
-    env = FireWorld(num_rows, 
+    env = FireWorld(n_iterations,
+                    num_rows, 
                     num_cols, 
                     cities, 
                     water_cells, 

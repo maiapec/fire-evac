@@ -42,6 +42,7 @@ class FireWorld:
 
     def __init__(
         self,
+        n_timesteps: int, 
         num_rows: int,
         num_cols: int,
         cities: np.ndarray,
@@ -61,6 +62,11 @@ class FireWorld:
         and sets the paths and populated areas.
         - wind angle is in radians
         """
+        # Store the number of iterations
+        if n_timesteps < 1:
+            raise ValueError("Number of iterations should be positive!")
+        self.n_timesteps = n_timesteps
+
         # Assert that number of rows, columns, and fire cells are both positive
         if num_rows < 1:
             raise ValueError("Number of rows should be positive!")
@@ -352,6 +358,15 @@ class FireWorld:
         """
         return self.actions
 
+    def get_agent_position(self) -> list:
+        """
+        Get the current position of the agent.
+        """
+        current_location_cell = np.where(self.state_space[PRESENCE_INDEX] == 1)
+        current_location_row, current_location_col = current_location_cell[0], current_location_cell[1]
+        agent_pos = [current_location_row[0], current_location_col[0]]
+        return agent_pos
+    
     def get_timestep(self) -> int:
         """
         Get current timestep of simulation
@@ -371,7 +386,7 @@ class FireWorld:
         """
         Get the status of the simulation.
         """
-        return self.time_step >= 100
+        return self.time_step >= self.n_timesteps
 
     def copy(self) -> "FireWorld":
         """
@@ -379,6 +394,7 @@ class FireWorld:
         """
         initial_position = np.where(self.state_space[PRESENCE_INDEX] == 1)
         new_env = FireWorld(
+            self.n_timesteps,
             self.num_rows,
             self.num_cols,
             self.cities,
