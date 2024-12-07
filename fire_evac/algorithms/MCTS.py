@@ -107,16 +107,16 @@ def solve_MCTS(n_timesteps=10, grid_size=40, load=False, map_directory_path=None
 
     evac_env = standard_initialization(n_timesteps, grid_size, load, map_directory_path)
     evac_env.fire_env.update_possible_actions()
-    #evac_env.render()
+    evac_env.render()
 
     for i in tqdm(range(n_timesteps)):
         mcts = MCTS(evac_env.fire_env, iterations=n_timesteps, exploration_weight=1.5) # n_iterations chosen to be equal to n_timesteps to make it consistent across all tests
         best_action = mcts.search(evac_env.fire_env.copy())
         evac_env.fire_env.set_action(best_action)
         evac_env.fire_env.advance_to_next_timestep()
-        #evac_env.render()
+        evac_env.render()
     reward = evac_env.fire_env.reward
     print("Final reward using MCTS: ", reward)
-    #evac_env.generate_gif(gif_name=gif_name)
+    evac_env.generate_gif(gif_name=gif_name)
     evac_env.close()
     return reward

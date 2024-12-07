@@ -79,6 +79,30 @@ def implement_strategy_all_maps(grid_size, strategy):
     # Save the updated DataFrame back to CSV
     results_df.to_csv(csv_file)
 
+def single_test():
+
+    grid_size = 40
+    n_timesteps = int(grid_size / 1.25)
+
+    # Generate a map
+    # standard_initialization(n_timesteps=n_timesteps, grid_size=grid_size, load=False, map_directory_path=None, save_map=True)
+
+    # Use the map
+    map_directory_path = os.path.join("pyrorl_map_info", "2024-12-07 13:06:58")
+    load = True
+
+    # Implement strategies
+    solve_Random(n_timesteps=n_timesteps, grid_size=grid_size, load=load, map_directory_path=map_directory_path)
+    solve_MaxImmediateDistance(n_timesteps=n_timesteps, grid_size=grid_size, load=load, map_directory_path=map_directory_path)
+    solve_MCTS(n_timesteps=n_timesteps, grid_size=grid_size, load=load, map_directory_path=map_directory_path)
+            
+    q_file_path = f"models/Q_table_grid_{grid_size}.csv"
+    solve_qlearning_offline(n_timesteps=n_timesteps, grid_size=grid_size, q_file_path=q_file_path, load=load, map_directory_path=map_directory_path)
+    
+    model_path = f"models/DQN_model_grid_{grid_size}.pth"
+    solve_dqn(n_timesteps=n_timesteps, grid_size=grid_size, model_path=model_path, load=load, map_directory_path=map_directory_path)
+
+
 if __name__ == "__main__":
 
     # We will use grid sizes 20, 40, 60, 80, 100

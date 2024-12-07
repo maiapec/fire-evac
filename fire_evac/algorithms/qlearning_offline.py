@@ -116,7 +116,7 @@ def solve_qlearning_offline(n_timesteps=10, grid_size=40, q_file_path='models/Q_
     
     evac_env = standard_initialization(n_timesteps, grid_size, load, map_directory_path)
     evac_env.fire_env.update_possible_actions()
-    #evac_env.render()
+    evac_env.render()
 
     # Initialize the Q-Learning agent
     agent = QLearningAgent(q_file_path)
@@ -131,11 +131,10 @@ def solve_qlearning_offline(n_timesteps=10, grid_size=40, q_file_path='models/Q_
         # Perform the action
         evac_env.fire_env.set_action(best_action)
         evac_env.fire_env.advance_to_next_timestep()
-        # Render the environment
-        #evac_env.render()
+        evac_env.render()
 
     reward = evac_env.fire_env.reward
     print("Final reward using offline Q-Learning: ", reward)
-    #evac_env.generate_gif(gif_name=gif_name)
+    evac_env.generate_gif(gif_name=gif_name)
     evac_env.close()
     return reward

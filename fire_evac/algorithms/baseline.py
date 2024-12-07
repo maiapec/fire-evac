@@ -25,18 +25,18 @@ def solve_Random(n_timesteps=10, grid_size=40, load=False, map_directory_path=No
 
     evac_env = standard_initialization(n_timesteps, grid_size, load, map_directory_path)
     evac_env.fire_env.update_possible_actions()
-    #evac_env.render()
+    evac_env.render()
 
     for i in tqdm(range(n_timesteps)):
         agent = RandomAgent(evac_env.fire_env)
         best_action = agent.get_action()
         evac_env.fire_env.set_action(best_action)
         evac_env.fire_env.advance_to_next_timestep()
-        #evac_env.render()
+        evac_env.render()
     
     reward = evac_env.fire_env.reward
     print("Final reward using Random Agent: ", reward)
-    #evac_env.generate_gif(gif_name=gif_name)
+    evac_env.generate_gif(gif_name=gif_name)
     evac_env.close()
     return reward
 
@@ -44,17 +44,17 @@ def solve_MaxImmediateDistance(n_timesteps=10, grid_size=40, load=False, map_dir
 
     evac_env = standard_initialization(n_timesteps, grid_size, load, map_directory_path)
     evac_env.fire_env.update_possible_actions()
-    #evac_env.render()
+    evac_env.render()
 
     for i in tqdm(range(n_timesteps)):
         agent = MaxImmediateDistanceAgent(evac_env.fire_env)
         best_action = agent.get_action()
         evac_env.fire_env.set_action(best_action)
         evac_env.fire_env.advance_to_next_timestep()
-        #evac_env.render()
+        evac_env.render()
 
     reward = evac_env.fire_env.reward
     print("Final reward using MaxImmediateDistance: ", reward)
-    #evac_env.generate_gif(gif_name=gif_name)
+    evac_env.generate_gif(gif_name=gif_name)
     evac_env.close()
     return reward

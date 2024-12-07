@@ -152,7 +152,7 @@ def solve_dqn(n_timesteps=10, grid_size=40, model_path="models/DQN_model.pth", l
     
     evac_env = standard_initialization(n_timesteps, grid_size, load, map_directory_path)
     evac_env.fire_env.update_possible_actions()
-    #evac_env.render()
+    evac_env.render()
 
     for t in tqdm(range(n_timesteps)):
         # Encode the current state
@@ -169,12 +169,12 @@ def solve_dqn(n_timesteps=10, grid_size=40, model_path="models/DQN_model.pth", l
         # Perform the action
         evac_env.fire_env.set_action(best_action)
         evac_env.fire_env.advance_to_next_timestep()
-        #evac_env.render()
+        evac_env.render()
     
     # Evaluate the final reward
     total_reward = evac_env.fire_env.reward
     print("Final reward using the trained DQN: ", total_reward)
 
-    #evac_env.generate_gif(gif_name=gif_name)
+    evac_env.generate_gif(gif_name=gif_name)
     evac_env.close()
     return total_reward
