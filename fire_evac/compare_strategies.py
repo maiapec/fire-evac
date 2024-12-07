@@ -87,11 +87,11 @@ if __name__ == "__main__":
     # train_all(grid_size=40) # trained with 1000 episodes
 
     # Generate maps
-    generate_all_maps(grid_size=60, n_maps=500) # only use 500 maps 
+    generate_all_maps(grid_size=80, n_maps=500) # only use 500 maps 
 
     # Implement strategies
-    # implement_strategy_all_maps(grid_size=60, strategy="Random")
-    # implement_strategy_all_maps(grid_size=60, strategy="MaxImmediateDistance")
-    # implement_strategy_all_maps(grid_size=60, strategy="MCTS")
-    # implement_strategy_all_maps(grid_size=60, strategy="QLearning")
-    # implement_strategy_all_maps(grid_size=60, strategy="DQN")
+    implement_strategy_all_maps(grid_size=80, strategy="Random")
+    implement_strategy_all_maps(grid_size=80, strategy="MaxImmediateDistance")
+    implement_strategy_all_maps(grid_size=80, strategy="MCTS")
+    implement_strategy_all_maps(grid_size=60, strategy="QLearning")
+    implement_strategy_all_maps(grid_size=60, strategy="DQN")
