@@ -1,3 +1,17 @@
 name: fire-evac-env
 dependencies:
-  - numpy       # Add numpy to the environment
+  - numpy
+  - pandas
+  - math
+  - csv
+  - random
+  - tqdm
+  - torch
+  - collections
+  - typing
+  - gymnasium
+  - pygame
+  - shutil
+  - pickle
+  - datetime
+  - time
